@@ -24,8 +24,11 @@ type Outcome struct {
 
 // Options tune the action set from user settings.
 type Options struct {
-	Editor   string // command for the "open in editor" action (default zed)
-	ShowTmux bool   // include the tmux action
+	Editor   string              // command for the "open in editor" action (default zed)
+	ShowTmux bool                // include the tmux action
+	AI       Assistant           // assistant bound to c/r (resolved by ResolveAssistant)
+	HasAI    bool                // false when no assistant is installed (c/r hidden)
+	Custom   []core.CustomAction // user-defined [[actions.custom]] entries
 }
 
 // Spec is a single Hub action.
@@ -47,6 +50,12 @@ func (s Spec) Do(p core.Project) Outcome { return s.do(p) }
 
 var sessionRe = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
 
+// reservedKeys cannot be reused by custom actions.
+var reservedKeys = map[string]bool{
+	"enter": true, "z": true, "c": true, "r": true,
+	"g": true, "o": true, "f": true, "t": true,
+}
+
 // All returns the ordered action set for the given options. Order drives the
 // menu order.
 func All(o Options) []Spec {
@@ -62,26 +71,33 @@ func All(o Options) []Spec {
 			launch(editor, p.Path)
 			return Outcome{Cd: p.Path}
 		}},
-		{Key: "c", Label: i18n.T("action.claude"), Short: "Claude", do: func(p core.Project) Outcome {
-			return Outcome{Cd: p.Path, Run: "claude"}
-		}},
-		{Key: "r", Label: i18n.T("action.resume"), Short: i18n.T("action.short.resume"), do: func(p core.Project) Outcome {
-			return Outcome{Cd: p.Path, Run: "claude --resume"}
-		}},
-		{Key: "g", Label: i18n.T("action.git"), Short: "git", avail: hasGit, do: func(p core.Project) Outcome {
+	}
+	if o.HasAI {
+		ai := o.AI
+		specs = append(specs, Spec{Key: "c", Label: i18n.Tf("action.ai", ai.Name), Short: ai.Name, do: func(p core.Project) Outcome {
+			return Outcome{Cd: p.Path, Run: ai.runCmd()}
+		}})
+		if ai.hasResume() {
+			specs = append(specs, Spec{Key: "r", Label: i18n.Tf("action.ai.resume", ai.Name), Short: i18n.T("action.short.resume"), do: func(p core.Project) Outcome {
+				return Outcome{Cd: p.Path, Run: ai.resumeCmd()}
+			}})
+		}
+	}
+	specs = append(specs,
+		Spec{Key: "g", Label: i18n.T("action.git"), Short: "git", avail: hasGit, do: func(p core.Project) Outcome {
 			return Outcome{Cd: p.Path, Run: "git status"}
 		}},
-		{Key: "o", Label: i18n.T("action.remote"), Short: i18n.T("action.short.remote"), avail: hasGit, do: func(p core.Project) Outcome {
+		Spec{Key: "o", Label: i18n.T("action.remote"), Short: i18n.T("action.short.remote"), avail: hasGit, do: func(p core.Project) Outcome {
 			if url := remoteURL(p.Path); url != "" {
 				launch("open", url)
 			}
 			return Outcome{Cd: p.Path}
 		}},
-		{Key: "f", Label: i18n.T("action.finder"), Short: "Finder", do: func(p core.Project) Outcome {
+		Spec{Key: "f", Label: i18n.T("action.finder"), Short: "Finder", do: func(p core.Project) Outcome {
 			launch("open", p.Path)
 			return Outcome{Cd: p.Path}
 		}},
-	}
+	)
 	if o.ShowTmux {
 		specs = append(specs, Spec{Key: "t", Label: i18n.T("action.tmux"), Short: "tmux", do: func(p core.Project) Outcome {
 			name := strings.Trim(sessionRe.ReplaceAllString(p.Name, "-"), "-")
@@ -91,7 +107,59 @@ func All(o Options) []Spec {
 			return Outcome{Cd: p.Path, Run: "tmux new-session -A -s " + name}
 		}})
 	}
+	for _, c := range o.Custom {
+		if s, ok := customSpec(c); ok {
+			specs = append(specs, s)
+		}
+	}
 	return specs
+}
+
+// customSpec turns a CustomAction into a Spec, or ok=false when it is invalid
+// (empty key/command or a key reserved by a built-in). Invalid entries are
+// skipped silently here; hop doctor reports them.
+func customSpec(c core.CustomAction) (Spec, bool) {
+	if c.Key == "" || c.Command == "" || reservedKeys[c.Key] {
+		return Spec{}, false
+	}
+	spec := Spec{Key: c.Key, Label: c.Label, Short: c.Label}
+	if c.NeedsGit {
+		spec.avail = hasGit
+	}
+	spec.do = func(p core.Project) Outcome {
+		if c.InTerminal {
+			return Outcome{Cd: p.Path, Run: substituteShell(c.Command, p)}
+		}
+		if fields := substituteArgv(c.Command, p); len(fields) > 0 {
+			launch(fields[0], fields[1:]...)
+		}
+		return Outcome{Cd: p.Path}
+	}
+	return spec, true
+}
+
+// substituteArgv splits command into argv tokens and replaces {path}/{name} in
+// each, so a detached launch never goes through a shell.
+func substituteArgv(command string, p core.Project) []string {
+	fields := strings.Fields(command)
+	for i, f := range fields {
+		f = strings.ReplaceAll(f, "{path}", p.Path)
+		fields[i] = strings.ReplaceAll(f, "{name}", p.Name)
+	}
+	return fields
+}
+
+// substituteShell replaces {path}/{name} with shell-quoted values, for a command
+// the p() function will eval in the user's shell.
+func substituteShell(command string, p core.Project) string {
+	command = strings.ReplaceAll(command, "{path}", shellQuote(p.Path))
+	return strings.ReplaceAll(command, "{name}", shellQuote(p.Name))
+}
+
+// shellQuote wraps s in single quotes for POSIX shells, escaping embedded single
+// quotes as the standard '\” sequence.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // ByKey returns the action bound to key if it is available for p.

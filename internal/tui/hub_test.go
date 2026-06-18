@@ -46,8 +46,8 @@ func TestStyledPathPreservesText(t *testing.T) {
 
 func TestShiftLegend(t *testing.T) {
 	p := core.Project{Name: "x", Path: "/tmp/hop-no-such-repo-xyz"} // not a git repo
-	leg := shiftLegend(p, action.Options{Editor: "zed", ShowTmux: true})
-	for _, want := range []string{"zed", "Claude", "resume", "Finder", "tmux"} {
+	leg := shiftLegend(p, action.Options{Editor: "zed", ShowTmux: true, AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true})
+	for _, want := range []string{"zed", "claude", "resume", "Finder", "tmux"} {
 		if !strings.Contains(leg, want) {
 			t.Errorf("legend missing %q: %s", want, leg)
 		}
@@ -72,6 +72,11 @@ func typeRunes(m tea.Model, s string) tea.Model {
 		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 	return m
+}
+
+// aiOpts returns Options with a resolved assistant so the c/r actions exist.
+func aiOpts() action.Options {
+	return action.Options{AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
 }
 
 func TestHubFilterAndSelect(t *testing.T) {
@@ -114,7 +119,7 @@ func TestHubCursorMoves(t *testing.T) {
 }
 
 func TestHubActionMode(t *testing.T) {
-	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", aiOpts(), core.DefaultWeights())
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	if m.(model).mode != modeActions {
 		t.Fatal("tab should open the action menu")
@@ -137,7 +142,7 @@ func TestHubActionEscReturnsToList(t *testing.T) {
 }
 
 func TestHubShiftMode(t *testing.T) {
-	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "shift", action.Options{}, core.DefaultWeights())
+	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "shift", aiOpts(), core.DefaultWeights())
 	// Uppercase C fires the Claude action directly from the list, no Tab needed.
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
 	mm := m.(model)

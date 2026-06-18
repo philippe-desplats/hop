@@ -12,6 +12,7 @@ import (
 // Settings is the user config (~/.config/hop/config.toml).
 type Settings struct {
 	UI       UISettings       `toml:"ui"`
+	AI       AISettings       `toml:"ai"`
 	Shell    ShellSettings    `toml:"shell"`
 	Hub      HubSettings      `toml:"hub"`
 	Actions  ActionsSettings  `toml:"actions"`
@@ -25,6 +26,13 @@ type UISettings struct {
 	Language string `toml:"language"`
 	// Theme: "auto" (detect terminal background), or "light" / "dark".
 	Theme string `toml:"theme"`
+}
+
+// AISettings selects the AI assistant bound to the Hub's c/r actions.
+type AISettings struct {
+	// Tool: "auto" (first installed in preference order), or a name
+	// ("claude" / "codex" / "aider" / "gemini").
+	Tool string `toml:"tool"`
 }
 
 // ResolverSettings tunes how a fragment is ranked and when ambiguity opens the Hub.
@@ -46,8 +54,18 @@ type HubSettings struct {
 }
 
 type ActionsSettings struct {
-	Editor   string `toml:"editor"`    // command for the "open in editor" action
-	ShowTmux bool   `toml:"show_tmux"` // include the tmux action in the menu
+	Editor   string         `toml:"editor"`    // command for the "open in editor" action
+	ShowTmux bool           `toml:"show_tmux"` // include the tmux action in the menu
+	Custom   []CustomAction `toml:"custom"`    // user-defined [[actions.custom]] entries
+}
+
+// CustomAction is a user-defined Hub action ([[actions.custom]]).
+type CustomAction struct {
+	Key        string `toml:"key"`         // single letter, must not collide with a built-in
+	Label      string `toml:"label"`       // menu label
+	Command    string `toml:"command"`     // {path} and {name} are substituted
+	NeedsGit   bool   `toml:"needs_git"`   // hide outside a git repo
+	InTerminal bool   `toml:"in_terminal"` // true: run in the shell after cd; false: launch detached
 }
 
 type ScanSettings struct {
@@ -59,6 +77,7 @@ type ScanSettings struct {
 func DefaultSettings() Settings {
 	return Settings{
 		UI:      UISettings{Language: "auto", Theme: "auto"},
+		AI:      AISettings{Tool: "auto"},
 		Shell:   ShellSettings{Command: "p"},
 		Hub:     HubSettings{ActionAccess: "tab"},
 		Actions: ActionsSettings{Editor: "zed", ShowTmux: false},
@@ -100,6 +119,9 @@ func LoadSettings() Settings {
 	default:
 		s.UI.Theme = "auto"
 	}
+	if strings.TrimSpace(s.AI.Tool) == "" {
+		s.AI.Tool = "auto"
+	}
 	if strings.TrimSpace(s.Shell.Command) == "" {
 		s.Shell.Command = "p"
 	}
@@ -138,6 +160,10 @@ language = %q
 # Thème : "auto" (détecte le fond du terminal), ou "light" / "dark".
 theme = %q
 
+[ai]
+# Assistant IA des touches c/r : "auto" (premier installé), ou "claude" / "codex" / "aider" / "gemini".
+tool = %q
+
 [shell]
 # Nom de la fonction shell quotidienne (le raccourci qui fait le cd).
 command = %q
@@ -154,6 +180,13 @@ action_access = %q
 editor = %q
 # Afficher l'action "session tmux" dans le menu.
 show_tmux = %t
+# Actions personnalisées (optionnel) : chaque bloc ajoute une touche au menu.
+# [[actions.custom]]
+# key = "y"                  # une lettre, hors touches natives (z c r g o f t)
+# label = "ouvrir dans Cursor"
+# command = "cursor {path}"  # {path} et {name} sont substitués
+# needs_git = false
+# in_terminal = false        # false : lancé détaché (GUI) ; true : exécuté dans le shell après le cd
 
 [scan]
 # Où chercher les projets, profondeur max, et dossiers ignorés.
@@ -168,7 +201,7 @@ w_fuzzy = %g
 w_frecency = %g
 min_margin = %g
 `,
-		s.UI.Language, s.UI.Theme, s.Shell.Command, s.Hub.ActionAccess, s.Actions.Editor, s.Actions.ShowTmux,
+		s.UI.Language, s.UI.Theme, s.AI.Tool, s.Shell.Command, s.Hub.ActionAccess, s.Actions.Editor, s.Actions.ShowTmux,
 		quote(s.Scan.Roots), s.Scan.MaxDepth, quote(s.Scan.Ignore),
 		s.Resolver.WFuzzy, s.Resolver.WFrecency, s.Resolver.MinMargin)
 }

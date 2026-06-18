@@ -35,7 +35,14 @@ func cmdNav(args []string) {
 	frec := core.LoadFrecency()
 	now := time.Now()
 	weights := core.RankWeights{Fuzzy: settings.Resolver.WFuzzy, Frecency: settings.Resolver.WFrecency}
-	opts := action.Options{Editor: settings.Actions.Editor, ShowTmux: settings.Actions.ShowTmux}
+	ai, hasAI := action.ResolveAssistant(settings.AI.Tool)
+	opts := action.Options{
+		Editor:   settings.Actions.Editor,
+		ShowTmux: settings.Actions.ShowTmux,
+		AI:       ai,
+		HasAI:    hasAI,
+		Custom:   settings.Actions.Custom,
+	}
 
 	// `p -` : jump back to the previous project (second most recent visit).
 	if len(args) == 1 && args[0] == "-" {
@@ -181,7 +188,8 @@ func cmdConfig(_ []string) {
 }
 
 func cmdDoctor(_ []string) {
-	cfg := core.ScanConfig(core.LoadSettings())
+	settings := core.LoadSettings()
+	cfg := core.ScanConfig(settings)
 	rootLbl, binLbl := i18n.T("cli.doctor.root"), i18n.T("cli.doctor.bin")
 	fmt.Println("hop doctor")
 	for _, r := range cfg.Roots {
@@ -198,6 +206,15 @@ func cmdDoctor(_ []string) {
 		}
 		fmt.Printf("  %-8s %-42s %s\n", binLbl, bin, status)
 	}
+	list := strings.Join(action.DetectAssistants(), ", ")
+	if list == "" {
+		list = "(none found)"
+	}
+	active := "none"
+	if ai, ok := action.ResolveAssistant(settings.AI.Tool); ok {
+		active = ai.Name
+	}
+	fmt.Printf("  %-8s %-42s %s\n", "ai", list, "active: "+active)
 	if idx, err := core.LoadIndex(); err == nil {
 		fmt.Printf("  %-8s %-42s %d\n", "index", core.IndexPath(), len(idx.Projects))
 	} else {

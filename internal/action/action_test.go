@@ -10,14 +10,15 @@ import (
 )
 
 func TestActionOutcomes(t *testing.T) {
-	p := core.Project{Name: "portal-monorepo", Path: "/p/x"}
+	p := core.Project{Name: "web-app", Path: "/p/x"}
+	opts := Options{AI: Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
 	want := map[string]Outcome{
 		"enter": {Cd: "/p/x"},
 		"c":     {Cd: "/p/x", Run: "claude"},
 		"r":     {Cd: "/p/x", Run: "claude --resume"},
 	}
 	for key, exp := range want {
-		s, ok := ByKey(key, p, Options{})
+		s, ok := ByKey(key, p, opts)
 		if !ok {
 			t.Fatalf("action %q not found", key)
 		}

@@ -55,7 +55,11 @@ func TestEmitOutcome(t *testing.T) {
 
 func TestActionOutcome(t *testing.T) {
 	p := core.Project{Name: "demo", Path: "/p/demo"}
-	opts := action.Options{Editor: "zed"}
+	opts := action.Options{
+		Editor: "zed",
+		AI:     action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}},
+		HasAI:  true,
+	}
 	cases := []struct {
 		name    string
 		key     string

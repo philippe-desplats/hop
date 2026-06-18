@@ -11,7 +11,8 @@ import (
 	"github.com/philippe-desplats/hop/internal/i18n"
 )
 
-const version = "0.0.1-dev"
+// version is overridden at release time via -ldflags "-X main.version=...".
+var version = "0.0.1-dev"
 
 func main() {
 	i18n.SetLanguage(core.LoadSettings().UI.Language)

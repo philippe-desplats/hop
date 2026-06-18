@@ -1,0 +1,13 @@
+# Binary (root-anchored so it never matches the cmd/hop/ package dir)
+/hop
+
+# Go
+*.test
+*.out
+/dist/
+
+# Internal tooling artifacts (not for the remote)
+.claude/
+
+# macOS
+.DS_Store

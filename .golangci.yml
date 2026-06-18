@@ -1,0 +1,12 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - gosec
+  exclusions:
+    rules:
+      # gosec on tests is noise: fixtures use loose perms and exec git on purpose.
+      - path: _test\.go
+        linters:
+          - gosec

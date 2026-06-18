@@ -1,6 +1,6 @@
 // Command hop is a fast project-directory switcher. The binary prints results;
-// a generated zsh function performs the actual cd (a child process cannot change
-// its parent shell's working directory). See `hop init zsh`.
+// a generated shell function performs the actual cd (a child process cannot
+// change its parent shell's working directory). See `hop init <shell>`.
 package main
 
 import (
@@ -33,6 +33,8 @@ func main() {
 		cmdPrompt(args[1:])
 	case "config":
 		cmdConfig(args[1:])
+	case "complete":
+		cmdComplete(args[1:])
 	case "doctor":
 		cmdDoctor(args[1:])
 	case "version", "--version", "-v":

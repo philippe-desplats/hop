@@ -40,14 +40,21 @@ func cmdInit(args []string) {
 		fmt.Fprintf(os.Stderr, "hop: invalid function name %q (letters, digits, underscore; not starting with a digit)\n", name)
 		os.Exit(2)
 	}
-	switch shell {
-	case "zsh":
+	emit := func(integration string) {
 		if created, _ := core.EnsureConfig(); created {
 			fmt.Fprintln(os.Stderr, i18n.Tf("cli.config_created", core.ConfigPath()))
 		}
-		fmt.Print(zshIntegration(name))
+		fmt.Print(integration)
+	}
+	switch shell {
+	case "zsh":
+		emit(zshIntegration(name))
+	case "bash":
+		emit(bashIntegration(name))
+	case "fish":
+		emit(fishIntegration(name))
 	default:
-		fmt.Fprintf(os.Stderr, "hop: unsupported shell %q (zsh only for now)\n", shell)
+		fmt.Fprintf(os.Stderr, "hop: unsupported shell %q (zsh, bash, fish)\n", shell)
 		os.Exit(2)
 	}
 }
@@ -62,10 +69,8 @@ func zshIntegration(cmd string) string {
 #   %[1]s <kw> <kw>    narrow by sub-path, e.g. %[1]s acme web
 #   %[1]s -            jump back to the previous project
 #   %[1]s              open the interactive fuzzy Hub (Enter to cd)
-#   %[1]s @name        pinned bookmark (v1.1)
-# Hub keys (v1.0):
-#   enter cd · z Zed · c Claude · r Claude --resume · g git status
-#   o remote repo · f Finder · t tmux session
+# Hub keys: enter cd · z editor · c AI assistant · r resume · g git
+#   o remote · f Finder · t tmux · plus your [[actions.custom]] keys
 unalias %[1]s 2>/dev/null
 # 'function %[1]s' (not '%[1]s()') so a still-active alias is not expanded at parse time.
 function %[1]s {
@@ -90,6 +95,85 @@ function _hop_chpwd {
   command hop add "$PWD" &>/dev/null &!
 }
 autoload -Uz add-zsh-hook && add-zsh-hook chpwd _hop_chpwd
+`
+	return fmt.Sprintf(tmpl, cmd)
+}
+
+// bashIntegration renders the bash function, frecency hook and completion.
+func bashIntegration(cmd string) string {
+	const tmpl = `# hop shell integration, add  eval "$(hop init bash)"  to ~/.bashrc
+# Cheatsheet:
+#   %[1]s <kw>         jump straight to the best project
+#   %[1]s <kw> <kw>    narrow by sub-path, e.g. %[1]s acme web
+#   %[1]s -            jump back to the previous project
+#   %[1]s              open the interactive fuzzy Hub (Enter to cd)
+# Hub keys: enter cd · z editor · c AI assistant · r resume · g git
+#   o remote · f Finder · t tmux · plus your [[actions.custom]] keys
+unalias %[1]s 2>/dev/null
+%[1]s() {
+  local out line dir cmd
+  out="$(command hop nav "$@")" || return
+  while IFS= read -r line; do
+    case "$line" in
+      "__HOP_CD__ "*) dir="${line#__HOP_CD__ }" ;;
+      "__HOP_RUN__ "*) cmd="${line#__HOP_RUN__ }" ;;
+    esac
+  done <<< "$out"
+  [ -n "$dir" ] && cd -- "$dir"
+  [ -n "$cmd" ] && eval "$cmd"
+}
+# Frecency hook: bash has no chpwd; append to PROMPT_COMMAND (never clobber it).
+_hop_last_pwd=""
+_hop_record() {
+  [ "$PWD" = "$_hop_last_pwd" ] && return
+  _hop_last_pwd="$PWD"
+  command hop add "$PWD" >/dev/null 2>&1 &
+}
+case "$PROMPT_COMMAND" in
+  *_hop_record*) ;;
+  *) PROMPT_COMMAND="_hop_record${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
+esac
+# Completion: project names from the index.
+_hop_complete() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  COMPREPLY=( $(command hop complete "$cur") )
+}
+complete -F _hop_complete %[1]s
+`
+	return fmt.Sprintf(tmpl, cmd)
+}
+
+// fishIntegration renders the fish function, frecency hook and completion.
+func fishIntegration(cmd string) string {
+	const tmpl = `# hop shell integration, add  hop init fish | source  to ~/.config/fish/config.fish
+# Cheatsheet:
+#   %[1]s <kw>         jump straight to the best project
+#   %[1]s <kw> <kw>    narrow by sub-path, e.g. %[1]s acme web
+#   %[1]s -            jump back to the previous project
+#   %[1]s              open the interactive fuzzy Hub (Enter to cd)
+# Hub keys: enter cd · z editor · c AI assistant · r resume · g git
+#   o remote · f Finder · t tmux · plus your [[actions.custom]] keys
+function %[1]s
+    set -l out (command hop nav $argv)
+    or return
+    set -l dir
+    set -l cmd
+    for line in $out
+        if string match -q '__HOP_CD__ *' -- $line
+            set dir (string replace '__HOP_CD__ ' '' -- $line)
+        else if string match -q '__HOP_RUN__ *' -- $line
+            set cmd (string replace '__HOP_RUN__ ' '' -- $line)
+        end
+    end
+    test -n "$dir"; and cd $dir
+    test -n "$cmd"; and eval $cmd
+end
+# Frecency hook: fish fires on every PWD change.
+function _hop_record --on-variable PWD
+    command hop add $PWD >/dev/null 2>&1 &
+end
+# Completion: project names from the index.
+complete -c %[1]s -f -a "(command hop complete (commandline -ct))"
 `
 	return fmt.Sprintf(tmpl, cmd)
 }

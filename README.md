@@ -41,6 +41,7 @@ frecency (frequency plus recency).
 - TOML configuration with an interactive editor (`hop config`).
 - Adaptive light and dark themes, and UI in English, French, Spanish and
   Portuguese.
+- Works in zsh, bash and fish, with TAB-completion of project names.
 
 ## Installation
 
@@ -50,13 +51,16 @@ go install github.com/philippe-desplats/hop/cmd/hop@latest
 
 A Homebrew tap is planned for the first tagged release.
 
-Then wire the shell integration into your shell startup file (`~/.zshrc` or
-`~/.zsh_init`):
+Then wire the shell integration into your shell startup file:
 
 ```sh
-eval "$(hop init zsh)"            # daily shortcut named p
-# eval "$(hop init zsh --cmd pp)" # or pick another name
+eval "$(hop init zsh)"          # zsh   (~/.zshrc)
+eval "$(hop init bash)"         # bash  (~/.bashrc)
+hop init fish | source          # fish  (~/.config/fish/config.fish)
 ```
+
+`--cmd NAME` picks a different function name (default `p`), and `p <TAB>`
+completes project names.
 
 Open a new shell. The first invocation indexes your project roots automatically.
 

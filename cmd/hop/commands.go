@@ -168,6 +168,40 @@ func cmdPrompt(_ []string) {
 	}
 }
 
+// cmdComplete prints project names matching the fragment, one per line, for shell
+// completion. It reads the index only (no scan) so it stays fast on every TAB.
+func cmdComplete(args []string) {
+	idx, err := core.LoadIndex()
+	if err != nil {
+		return
+	}
+	names := make([]string, len(idx.Projects))
+	for i, p := range idx.Projects {
+		names[i] = p.Name
+	}
+	for _, n := range completeMatches(names, strings.Join(args, " ")) {
+		fmt.Println(n)
+	}
+}
+
+// completeMatches returns the distinct names containing frag (case-insensitive),
+// preserving order. An empty fragment returns all distinct names.
+func completeMatches(names []string, frag string) []string {
+	frag = strings.ToLower(frag)
+	seen := map[string]bool{}
+	var out []string
+	for _, n := range names {
+		if seen[n] {
+			continue
+		}
+		if frag == "" || strings.Contains(strings.ToLower(n), frag) {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 func cmdConfig(_ []string) {
 	if _, err := core.EnsureConfig(); err != nil {
 		fatal(err)

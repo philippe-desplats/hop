@@ -53,6 +53,22 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/philippe-desplats/hop"
     description: "A fast, AI-agnostic project switcher for your terminal."
+    # The binaries are ad-hoc signed (Go linker) but not notarized, so a clean
+    # machine's Gatekeeper rejects them once Homebrew has flagged the download
+    # with com.apple.quarantine. Strip that flag on install so the CLI runs.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/hop"]
+          end
+    # Shown right after `brew install`: point the user at the guided setup, which
+    # prints the exact shell-integration line for their shell.
+    caveats: |
+      To finish setting up hop, run the guided first-run setup:
+        hop setup
+      It detects your project folders, editor and AI assistant, then prints the
+      one line to add to your shell config (~/.zshrc, ~/.bashrc or fish).
 
 changelog:
   use: github

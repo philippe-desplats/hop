@@ -46,12 +46,13 @@ func LoadIndex() (*Index, error) {
 	return idx, nil
 }
 
-// BuildIndex scans the tree without persisting.
+// BuildIndex scans the tree without persisting. Folders the user tracked with
+// `hop track` are merged in, so they survive every rescan.
 func BuildIndex(cfg Config) *Index {
 	return &Index{
 		Version:   indexVersion,
 		ScannedAt: time.Now().Unix(),
-		Projects:  Scan(cfg),
+		Projects:  mergeExtras(Scan(cfg)),
 	}
 }
 

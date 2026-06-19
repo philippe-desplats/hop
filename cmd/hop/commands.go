@@ -29,8 +29,9 @@ func cmdScan(_ []string) {
 	fmt.Fprintln(os.Stderr, i18n.Tf("cli.scan_summary", len(idx.Projects), len(cats)))
 	removed, _ := core.PruneFrecency()
 	pins, _ := core.PrunePins()
-	if removed+pins > 0 {
-		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins))
+	extras, _ := core.PruneExtras()
+	if removed+pins+extras > 0 {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins+extras))
 	}
 }
 
@@ -47,7 +48,8 @@ func parseJumpBack(arg string) (int, bool) {
 	return 0, false
 }
 
-// cmdClean prunes frecency entries whose directory no longer exists.
+// cmdClean prunes frecency, pin and tracked-folder entries whose directory no
+// longer exists.
 func cmdClean(_ []string) {
 	removed, err := core.PruneFrecency()
 	if err != nil {
@@ -57,7 +59,68 @@ func cmdClean(_ []string) {
 	if err != nil {
 		fatal(err)
 	}
-	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins))
+	extras, err := core.PruneExtras()
+	if err != nil {
+		fatal(err)
+	}
+	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins+extras))
+}
+
+// cmdTrack adds folders to the search list so they appear even without a git
+// repository; cmdUntrack removes them. With no argument both act on the current
+// directory.
+func cmdTrack(args []string)   { trackOrUntrack(args, true) }
+func cmdUntrack(args []string) { trackOrUntrack(args, false) }
+
+func trackOrUntrack(args []string, track bool) {
+	if len(args) == 0 {
+		cwd, err := os.Getwd()
+		if err != nil {
+			fatal(err)
+		}
+		args = []string{cwd}
+	}
+	changed := false
+	for _, arg := range args {
+		path := core.CanonicalDir(expandTilde(arg))
+		if core.HasControlChars(path) {
+			fmt.Fprintln(os.Stderr, i18n.T("cli.unsafe_path"))
+			continue
+		}
+		label := core.HomeRelative(path)
+		if track {
+			//nolint:gosec // path is the folder the user explicitly asked to track, already canonicalized and control-char checked; we only stat it to confirm it is a directory.
+			if fi, err := os.Stat(path); err != nil || !fi.IsDir() {
+				fmt.Fprintln(os.Stderr, i18n.Tf("cli.track_not_dir", arg))
+				continue
+			}
+			added, err := core.AddExtra(path)
+			if err != nil {
+				fatal(err)
+			}
+			if added {
+				changed = true
+				fmt.Fprintln(os.Stderr, i18n.Tf("cli.tracked", label))
+			} else {
+				fmt.Fprintln(os.Stderr, i18n.Tf("cli.track_already", label))
+			}
+			continue
+		}
+		removed, err := core.RemoveExtra(path)
+		if err != nil {
+			fatal(err)
+		}
+		if removed {
+			changed = true
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.untracked", label))
+		} else {
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.track_not_found", label))
+		}
+	}
+	// Rebuild so the change is reflected on the next `p` without waiting for a scan.
+	if changed {
+		core.BuildAndSaveIndex(core.ScanConfig(core.LoadSettings()))
+	}
 }
 
 // cmdPin pins the project matching the keywords so it floats to the top of the

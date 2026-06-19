@@ -104,6 +104,11 @@ var catalog = map[Lang]map[string]string{
 		"cli.pruned":               "hop: removed %d dead path(s)",
 		"cli.pinned":               "hop: pinned %s",
 		"cli.unpinned":             "hop: unpinned %s",
+		"cli.tracked":              "hop: now tracking %s",
+		"cli.untracked":            "hop: no longer tracking %s",
+		"cli.track_already":        "hop: %s is already tracked",
+		"cli.track_not_found":      "hop: %s was not tracked",
+		"cli.track_not_dir":        "hop: %s is not a directory",
 		"cli.config_created":       "hop: config created at %s",
 		"cli.config_saved":         "hop: config saved → %s",
 		"cli.scan_summary":         "hop: %d projects indexed in %d categories",
@@ -122,6 +127,8 @@ Usage:
   hop config             Interactive configuration editor
   hop pin <keyword>      Pin the matching project to the top of the Hub
   hop unpin <keyword>    Remove a pin
+  hop track <path>       Add a folder to the search list (even without git)
+  hop untrack <path>     Remove a folder from the search list
   hop clean              Forget projects whose folder no longer exists
   hop doctor             Configuration diagnostics
   hop version            Print the version
@@ -234,6 +241,11 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"cli.pruned":               "hop: %d chemin(s) mort(s) supprimé(s)",
 		"cli.pinned":               "hop: %s épinglé",
 		"cli.unpinned":             "hop: %s désépinglé",
+		"cli.tracked":              "hop: %s ajouté à la liste de recherche",
+		"cli.untracked":            "hop: %s retiré de la liste de recherche",
+		"cli.track_already":        "hop: %s déjà suivi",
+		"cli.track_not_found":      "hop: %s n'était pas suivi",
+		"cli.track_not_dir":        "hop: %s n'est pas un dossier",
 		"cli.config_created":       "hop: config créée dans %s",
 		"cli.config_saved":         "hop: config sauvegardée → %s",
 		"cli.scan_summary":         "hop: %d projets indexés dans %d catégories",
@@ -252,6 +264,8 @@ Usage:
   hop config             Éditeur de configuration interactif
   hop pin <mot-clé>      Épingle le projet correspondant en tête du Hub
   hop unpin <mot-clé>    Retire un épinglage
+  hop track <chemin>     Ajoute un dossier à la liste de recherche (même sans git)
+  hop untrack <chemin>   Retire un dossier de la liste de recherche
   hop clean              Oublie les projets dont le dossier n'existe plus
   hop doctor             Diagnostic de configuration
   hop version            Affiche la version
@@ -364,6 +378,11 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"cli.pruned":               "hop: %d ruta(s) muerta(s) eliminada(s)",
 		"cli.pinned":               "hop: %s fijado",
 		"cli.unpinned":             "hop: %s desfijado",
+		"cli.tracked":              "hop: %s añadido a la lista de búsqueda",
+		"cli.untracked":            "hop: %s eliminado de la lista de búsqueda",
+		"cli.track_already":        "hop: %s ya está en seguimiento",
+		"cli.track_not_found":      "hop: %s no estaba en seguimiento",
+		"cli.track_not_dir":        "hop: %s no es un directorio",
 		"cli.config_created":       "hop: config creada en %s",
 		"cli.config_saved":         "hop: config guardada → %s",
 		"cli.scan_summary":         "hop: %d proyectos indexados en %d categorías",
@@ -382,6 +401,8 @@ Uso:
   hop config             Editor de configuración interactivo
   hop pin <palabra>      Fija el proyecto correspondiente arriba del Hub
   hop unpin <palabra>    Quita una fijación
+  hop track <ruta>       Añade una carpeta a la lista de búsqueda (aunque sin git)
+  hop untrack <ruta>     Quita una carpeta de la lista de búsqueda
   hop clean              Olvida proyectos cuya carpeta ya no existe
   hop doctor             Diagnóstico de configuración
   hop version            Muestra la versión
@@ -494,6 +515,11 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"cli.pruned":               "hop: %d caminho(s) morto(s) removido(s)",
 		"cli.pinned":               "hop: %s fixado",
 		"cli.unpinned":             "hop: %s desafixado",
+		"cli.tracked":              "hop: %s adicionado à lista de busca",
+		"cli.untracked":            "hop: %s removido da lista de busca",
+		"cli.track_already":        "hop: %s já está na lista",
+		"cli.track_not_found":      "hop: %s não estava na lista",
+		"cli.track_not_dir":        "hop: %s não é um diretório",
 		"cli.config_created":       "hop: config criada em %s",
 		"cli.config_saved":         "hop: config salva → %s",
 		"cli.scan_summary":         "hop: %d projetos indexados em %d categorias",
@@ -512,6 +538,8 @@ Uso:
   hop config             Editor de configuração interativo
   hop pin <palavra>      Fixa o projeto correspondente no topo do Hub
   hop unpin <palavra>    Remove uma fixação
+  hop track <caminho>    Adiciona uma pasta à lista de busca (mesmo sem git)
+  hop untrack <caminho>  Remove uma pasta da lista de busca
   hop clean              Esquece projetos cuja pasta não existe mais
   hop doctor             Diagnóstico de configuração
   hop version            Mostra a versão

@@ -34,6 +34,7 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 - **Pin favorites** so they float to the top of the Hub, from the CLI or with a single key in the Hub.
 - **Jump back** to where you were with `p -` (and `p -2`, `p -3`).
 - **Forgets dead paths**: projects whose folder is gone are pruned.
+- **Track any folder** in the search list, even without a git repo, with `hop track ~/Downloads` (it survives every rescan).
 - **Multi-shell**: zsh, bash and fish, with TAB-completion of project names.
 - **Adaptive light and dark themes**, UI in English, French, Spanish and Portuguese.
 - **TOML configuration** with an interactive editor (`hop config`).
@@ -109,6 +110,8 @@ p                # open the interactive Hub (fuzzy list, up/down + Enter = cd)
 
 hop pin web      # pin a project so it floats to the top of the Hub (marked with a star)
 hop unpin web    # remove a pin
+hop track ~/Downloads    # add any folder to the search list, even without git
+hop untrack ~/Downloads  # remove it from the list again
 hop scan         # reindex on demand
 hop clean        # forget projects whose folder no longer exists
 hop setup        # re-run the guided first-run setup

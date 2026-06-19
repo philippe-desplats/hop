@@ -42,6 +42,10 @@ func main() {
 		cmdPin(args[1:])
 	case "unpin":
 		cmdUnpin(args[1:])
+	case "track":
+		cmdTrack(args[1:])
+	case "untrack":
+		cmdUntrack(args[1:])
 	case "clean":
 		cmdClean(args[1:])
 	case "doctor":

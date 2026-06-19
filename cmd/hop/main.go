@@ -24,6 +24,8 @@ func main() {
 	switch args[0] {
 	case "nav":
 		cmdNav(args[1:])
+	case "query":
+		cmdQuery(args[1:])
 	case "scan":
 		cmdScan(args[1:])
 	case "add":
@@ -42,6 +44,8 @@ func main() {
 		cmdPin(args[1:])
 	case "unpin":
 		cmdUnpin(args[1:])
+	case "import":
+		cmdImport(args[1:])
 	case "track":
 		cmdTrack(args[1:])
 	case "untrack":

@@ -45,14 +45,20 @@ func TestActionOutcomes(t *testing.T) {
 }
 
 func TestTmuxSessionSanitized(t *testing.T) {
+	t.Setenv("TMUX", "") // resolve the outside-a-session branch deterministically
 	p := core.Project{Name: "we!rd name.v2", Path: "/p/x"}
-	s, _ := ByKey("t", p, Options{ShowTmux: true})
+	s, ok := ByKey("t", p, Options{Multiplexer: "tmux"})
+	if !ok {
+		t.Fatal("t action should be present when a multiplexer is set")
+	}
 	out := s.Do(p)
 	const prefix = "tmux new-session -A -s "
 	if !strings.HasPrefix(out.Run, prefix) {
 		t.Fatalf("unexpected run: %q", out.Run)
 	}
-	if name := strings.TrimPrefix(out.Run, prefix); strings.ContainsAny(name, " !.") {
+	rest := strings.TrimPrefix(out.Run, prefix)
+	name := strings.SplitN(rest, " ", 2)[0]
+	if strings.ContainsAny(name, " !.") {
 		t.Errorf("session name not sanitized: %q", name)
 	}
 }

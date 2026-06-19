@@ -49,6 +49,33 @@ func AddExtra(path string) (added bool, err error) {
 	return added, err
 }
 
+// AddExtras records several paths in a single atomic write (idempotent on paths
+// already tracked), returning how many were newly added. Used by `hop import` so
+// a bulk track does not pay one file write per folder.
+func AddExtras(paths []string) (added int, err error) {
+	if len(paths) == 0 {
+		return 0, nil
+	}
+	e := emptyExtras()
+	_, err = store.Update(ExtrasPath(), e, true, func() error {
+		e.Version = extrasVersion
+		have := make(map[string]bool, len(e.Paths))
+		for _, x := range e.Paths {
+			have[x] = true
+		}
+		for _, p := range paths {
+			if have[p] {
+				continue
+			}
+			have[p] = true
+			e.Paths = append(e.Paths, p)
+			added++
+		}
+		return nil
+	})
+	return added, err
+}
+
 // RemoveExtra drops path; removed is false when it was not tracked.
 func RemoveExtra(path string) (removed bool, err error) {
 	e := emptyExtras()

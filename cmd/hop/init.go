@@ -70,7 +70,7 @@ func zshIntegration(cmd string) string {
 #   %[1]s -            jump back to the previous project
 #   %[1]s              open the interactive fuzzy Hub (Enter to cd)
 # Hub keys: enter cd · z editor · c AI assistant · r resume · g git
-#   o remote · f files · t tmux · plus your [[actions.custom]] keys
+#   o remote · f files · t tmux/zellij · plus your [[actions.custom]] keys
 unalias %[1]s 2>/dev/null
 # 'function %[1]s' (not '%[1]s()') so a still-active alias is not expanded at parse time.
 function %[1]s {
@@ -115,7 +115,7 @@ func bashIntegration(cmd string) string {
 #   %[1]s -            jump back to the previous project
 #   %[1]s              open the interactive fuzzy Hub (Enter to cd)
 # Hub keys: enter cd · z editor · c AI assistant · r resume · g git
-#   o remote · f files · t tmux · plus your [[actions.custom]] keys
+#   o remote · f files · t tmux/zellij · plus your [[actions.custom]] keys
 unalias %[1]s 2>/dev/null
 %[1]s() {
   local out line dir cmd
@@ -160,7 +160,7 @@ func fishIntegration(cmd string) string {
 #   %[1]s -            jump back to the previous project
 #   %[1]s              open the interactive fuzzy Hub (Enter to cd)
 # Hub keys: enter cd · z editor · c AI assistant · r resume · g git
-#   o remote · f files · t tmux · plus your [[actions.custom]] keys
+#   o remote · f files · t tmux/zellij · plus your [[actions.custom]] keys
 function %[1]s
     set -l out (command hop nav $argv)
     or return

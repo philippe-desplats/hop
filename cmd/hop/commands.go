@@ -123,6 +123,140 @@ func trackOrUntrack(args []string, track bool) {
 	}
 }
 
+// cmdImport seeds hop's ranking from another tool's history. Only zoxide is
+// supported today: `hop import --from zoxide [--dry-run]`. It shells out to
+// `zoxide query --list --score` (the stable text interface, never the binary db)
+// and never fails silently: it always prints the imported/tracked/skipped counts.
+func cmdImport(args []string) {
+	source := "zoxide"
+	dryRun := false
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--dry-run":
+			dryRun = true
+		case a == "--from":
+			if i+1 < len(args) {
+				i++
+				source = args[i]
+			}
+		case strings.HasPrefix(a, "--from="):
+			source = strings.TrimPrefix(a, "--from=")
+		default:
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.import_unknown_flag", a))
+			os.Exit(2)
+		}
+	}
+	if source != "zoxide" {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.import_unknown_source", source))
+		os.Exit(2)
+	}
+	if _, err := exec.LookPath("zoxide"); err != nil {
+		fmt.Fprintln(os.Stderr, i18n.T("cli.import_no_zoxide"))
+		os.Exit(1)
+	}
+	out, err := exec.Command("zoxide", "query", "--list", "--score").Output()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.import_failed", err))
+		os.Exit(1)
+	}
+	entries := core.ParseZoxideOutput(string(out))
+
+	cfg := core.ScanConfig(core.LoadSettings())
+	idx, _ := core.LoadIndexOrBuild(cfg, true)
+	indexed := make(map[string]bool, len(idx.Projects))
+	for _, p := range idx.Projects {
+		indexed[p.Path] = true
+	}
+
+	imported, tracked, skipped, err := core.ImportZoxide(entries, indexed, time.Now(), dryRun)
+	if err != nil {
+		fatal(err)
+	}
+	if dryRun {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.import_dry", imported, tracked, skipped))
+		return
+	}
+	fmt.Fprintln(os.Stderr, i18n.Tf("cli.import_done", imported, tracked, skipped))
+	if tracked > 0 {
+		core.BuildAndSaveIndex(cfg) // surface newly tracked folders on the next `p`
+	}
+}
+
+// cmdQuery resolves keywords and prints the best match's path to stdout, as a
+// plain string (no sentinel, no frecency write) for scripting and composition
+// with other tools, the hop counterpart of `zoxide query`. With no keyword it
+// prints the top-frecency path; with --list it prints every match path,
+// frecency-descending, ignoring any keyword. No match exits 1 with empty stdout.
+func cmdQuery(args []string) {
+	list := false
+	var kws []string
+	for _, a := range args {
+		if a == "--list" {
+			list = true
+			continue
+		}
+		kws = append(kws, a)
+	}
+	if list {
+		kws = nil // --list lists everything by frecency, keywords are ignored
+	}
+
+	settings := core.LoadSettings()
+	cfg := core.ScanConfig(settings)
+	idx, _ := core.LoadIndexOrBuild(cfg, false)
+	frec := core.LoadFrecency()
+	now := time.Now()
+	weights := core.RankWeights{Fuzzy: settings.Resolver.WFuzzy, Frecency: settings.Resolver.WFrecency}
+
+	matches := core.Resolve(idx.Projects, frec, kws, now, weights)
+	// Opportunistic rescan on a keyword miss, mirroring cmdNav, so a freshly
+	// created project resolves.
+	if len(matches) == 0 && len(kws) > 0 {
+		idx = core.BuildAndSaveIndex(cfg)
+		matches = core.Resolve(idx.Projects, frec, kws, now, weights)
+	}
+
+	if list {
+		paths := safePaths(matches)
+		if len(paths) == 0 {
+			os.Exit(1)
+		}
+		for _, p := range paths {
+			fmt.Println(p)
+		}
+		return
+	}
+	if path, ok := firstSafePath(matches); ok {
+		fmt.Println(path)
+		return
+	}
+	os.Exit(1)
+}
+
+// firstSafePath returns the best match's path, skipping any path that would be
+// unsafe to print (a control char could smuggle a second protocol line into a
+// caller that eval's the output). ok is false when no safe match exists.
+func firstSafePath(matches []core.Match) (string, bool) {
+	for _, m := range matches {
+		if !core.HasControlChars(m.Project.Path) {
+			return m.Project.Path, true
+		}
+	}
+	return "", false
+}
+
+// safePaths returns every match path that is safe to print, preserving order.
+func safePaths(matches []core.Match) []string {
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if !core.HasControlChars(m.Project.Path) {
+			out = append(out, m.Project.Path)
+		}
+	}
+	return out
+}
+
 // cmdPin pins the project matching the keywords so it floats to the top of the
 // Hub; cmdUnpin removes it.
 func cmdPin(args []string)   { pinOrUnpin(args, true) }
@@ -168,11 +302,11 @@ func cmdNav(args []string) {
 	weights := core.RankWeights{Fuzzy: settings.Resolver.WFuzzy, Frecency: settings.Resolver.WFrecency}
 	ai, hasAI := action.ResolveAssistant(settings.AI.Tool)
 	opts := action.Options{
-		Editor:   settings.Actions.Editor,
-		ShowTmux: settings.Actions.ShowTmux,
-		AI:       ai,
-		HasAI:    hasAI,
-		Custom:   settings.Actions.Custom,
+		Editor:      settings.Actions.Editor,
+		Multiplexer: action.ResolveMultiplexer(settings.Actions.Multiplexer, settings.Actions.ShowTmux),
+		AI:          ai,
+		HasAI:       hasAI,
+		Custom:      settings.Actions.Custom,
 	}
 
 	// Jump-list: `p -` (previous), `p -2`, `p -3` (nth most recent, excluding cwd).

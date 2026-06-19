@@ -54,9 +54,12 @@ type HubSettings struct {
 }
 
 type ActionsSettings struct {
-	Editor   string         `toml:"editor"`    // command for the "open in editor" action
-	ShowTmux bool           `toml:"show_tmux"` // include the tmux action in the menu
-	Custom   []CustomAction `toml:"custom"`    // user-defined [[actions.custom]] entries
+	Editor   string `toml:"editor"`    // command for the "open in editor" action
+	ShowTmux bool   `toml:"show_tmux"` // legacy: include the tmux action (superseded by Multiplexer)
+	// Multiplexer drives the t action: "auto" (tmux if present, else zellij),
+	// "tmux", "zellij", or "off". When empty, show_tmux=true maps to "auto".
+	Multiplexer string         `toml:"multiplexer"`
+	Custom      []CustomAction `toml:"custom"` // user-defined [[actions.custom]] entries
 }
 
 // CustomAction is a user-defined Hub action ([[actions.custom]]).
@@ -178,8 +181,11 @@ action_access = %q
 [actions]
 # Commande de l'action "ouvrir dans l'éditeur".
 editor = %q
-# Afficher l'action "session tmux" dans le menu.
+# Afficher l'action "session tmux" dans le menu (hérité).
 show_tmux = %t
+# Multiplexeur de l'action "t" : "auto" (tmux sinon zellij), "tmux", "zellij" ou "off".
+# Prend le pas sur show_tmux quand il est défini ; décommente pour choisir explicitement.
+# multiplexer = "auto"
 # Actions personnalisées (optionnel) : chaque bloc ajoute une touche au menu.
 # [[actions.custom]]
 # key = "y"                  # une lettre, hors touches natives (z c r g o f t)

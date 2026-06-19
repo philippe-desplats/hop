@@ -31,7 +31,7 @@ var catalog = map[Lang]map[string]string{
 		"action.remote":      "open remote repo",
 		"action.finder":      "open in Finder",
 		"action.filemanager": "open in file manager",
-		"action.tmux":        "tmux session",
+		"action.mux":         "%s session",
 
 		"action.short.resume":      "resume",
 		"action.short.pin":         "pin",
@@ -95,32 +95,39 @@ var catalog = map[Lang]map[string]string{
 		"setup.shell_present":    "Shell integration already present in %s.",
 		"setup.shell_failed":     "hop: could not write %s automatically.",
 
-		"cli.no_project":           "hop: no project for %q",
-		"cli.no_index":             "hop: no project indexed, run `hop scan`",
-		"cli.unsafe_path":          "hop: refusing a path with control characters",
-		"cli.frequent_header":      "hop · %d projects (no interactive terminal, list fallback):",
-		"cli.tip":                  "tip: p <keyword> [<keyword>...] to jump, p - to go back",
-		"cli.no_prev":              "hop: no previous project",
-		"cli.pruned":               "hop: removed %d dead path(s)",
-		"cli.pinned":               "hop: pinned %s",
-		"cli.unpinned":             "hop: unpinned %s",
-		"cli.tracked":              "hop: now tracking %s",
-		"cli.untracked":            "hop: no longer tracking %s",
-		"cli.track_already":        "hop: %s is already tracked",
-		"cli.track_not_found":      "hop: %s was not tracked",
-		"cli.track_not_dir":        "hop: %s is not a directory",
-		"cli.config_created":       "hop: config created at %s",
-		"cli.config_saved":         "hop: config saved → %s",
-		"cli.scan_summary":         "hop: %d projects indexed in %d categories",
-		"cli.indexing":             "hop: initial indexing…",
-		"cli.doctor.root":          "root",
-		"cli.doctor.bin":           "binary",
-		"cli.doctor.index_missing": "MISSING (run `hop scan`)",
+		"cli.no_project":            "hop: no project for %q",
+		"cli.no_index":              "hop: no project indexed, run `hop scan`",
+		"cli.unsafe_path":           "hop: refusing a path with control characters",
+		"cli.frequent_header":       "hop · %d projects (no interactive terminal, list fallback):",
+		"cli.tip":                   "tip: p <keyword> [<keyword>...] to jump, p - to go back",
+		"cli.no_prev":               "hop: no previous project",
+		"cli.pruned":                "hop: removed %d dead path(s)",
+		"cli.pinned":                "hop: pinned %s",
+		"cli.unpinned":              "hop: unpinned %s",
+		"cli.tracked":               "hop: now tracking %s",
+		"cli.untracked":             "hop: no longer tracking %s",
+		"cli.track_already":         "hop: %s is already tracked",
+		"cli.track_not_found":       "hop: %s was not tracked",
+		"cli.track_not_dir":         "hop: %s is not a directory",
+		"cli.import_no_zoxide":      "hop: zoxide not found on PATH; install it first (e.g. brew install zoxide)",
+		"cli.import_failed":         "hop: zoxide import failed: %v",
+		"cli.import_done":           "hop: imported %d, tracked %d, skipped %d",
+		"cli.import_dry":            "hop: would import %d, track %d, skip %d (dry run, nothing written)",
+		"cli.import_unknown_source": "hop: unknown import source %q (only zoxide is supported)",
+		"cli.import_unknown_flag":   "hop: unknown flag %q for import",
+		"cli.config_created":        "hop: config created at %s",
+		"cli.config_saved":          "hop: config saved → %s",
+		"cli.scan_summary":          "hop: %d projects indexed in %d categories",
+		"cli.indexing":              "hop: initial indexing…",
+		"cli.doctor.root":           "root",
+		"cli.doctor.bin":            "binary",
+		"cli.doctor.index_missing":  "MISSING (run `hop scan`)",
 		"cli.help": `hop · project switcher
 
 Usage:
   hop setup              Guided first-run setup (folders, editor, assistant)
   hop nav [keyword...]   Resolve keywords and print the target (used by p)
+  hop query [keyword...] Print the best match path (plain, for scripts; --list for all)
   hop scan               (Re)build the project index
   hop add <path>         Record a visit (frecency)
   hop init zsh [--cmd N] Print the shell integration (function "p" by default)
@@ -129,6 +136,7 @@ Usage:
   hop unpin <keyword>    Remove a pin
   hop track <path>       Add a folder to the search list (even without git)
   hop untrack <path>     Remove a folder from the search list
+  hop import --from zoxide  Seed ranking from zoxide (--dry-run to preview)
   hop clean              Forget projects whose folder no longer exists
   hop doctor             Configuration diagnostics
   hop version            Print the version
@@ -168,7 +176,7 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"action.remote":      "ouvrir le repo distant",
 		"action.finder":      "ouvrir dans le Finder",
 		"action.filemanager": "ouvrir dans le gestionnaire de fichiers",
-		"action.tmux":        "session tmux",
+		"action.mux":         "session %s",
 
 		"action.short.resume":      "reprise",
 		"action.short.pin":         "épingler",
@@ -232,32 +240,39 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"setup.shell_present":    "Intégration shell déjà présente dans %s.",
 		"setup.shell_failed":     "hop : impossible d'écrire %s automatiquement.",
 
-		"cli.no_project":           "hop: aucun projet pour %q",
-		"cli.no_index":             "hop: aucun projet indexé, lance `hop scan`",
-		"cli.unsafe_path":          "hop : chemin contenant des caractères de contrôle, action refusée",
-		"cli.frequent_header":      "hop · %d projets (pas de terminal interactif, repli liste) :",
-		"cli.tip":                  "astuce : p <mot-clé> [<mot-clé>...] pour sauter, p - pour revenir",
-		"cli.no_prev":              "hop: pas de projet précédent",
-		"cli.pruned":               "hop: %d chemin(s) mort(s) supprimé(s)",
-		"cli.pinned":               "hop: %s épinglé",
-		"cli.unpinned":             "hop: %s désépinglé",
-		"cli.tracked":              "hop: %s ajouté à la liste de recherche",
-		"cli.untracked":            "hop: %s retiré de la liste de recherche",
-		"cli.track_already":        "hop: %s déjà suivi",
-		"cli.track_not_found":      "hop: %s n'était pas suivi",
-		"cli.track_not_dir":        "hop: %s n'est pas un dossier",
-		"cli.config_created":       "hop: config créée dans %s",
-		"cli.config_saved":         "hop: config sauvegardée → %s",
-		"cli.scan_summary":         "hop: %d projets indexés dans %d catégories",
-		"cli.indexing":             "hop: indexation initiale…",
-		"cli.doctor.root":          "racine",
-		"cli.doctor.bin":           "binaire",
-		"cli.doctor.index_missing": "ABSENT (lance `hop scan`)",
+		"cli.no_project":            "hop: aucun projet pour %q",
+		"cli.no_index":              "hop: aucun projet indexé, lance `hop scan`",
+		"cli.unsafe_path":           "hop : chemin contenant des caractères de contrôle, action refusée",
+		"cli.frequent_header":       "hop · %d projets (pas de terminal interactif, repli liste) :",
+		"cli.tip":                   "astuce : p <mot-clé> [<mot-clé>...] pour sauter, p - pour revenir",
+		"cli.no_prev":               "hop: pas de projet précédent",
+		"cli.pruned":                "hop: %d chemin(s) mort(s) supprimé(s)",
+		"cli.pinned":                "hop: %s épinglé",
+		"cli.unpinned":              "hop: %s désépinglé",
+		"cli.tracked":               "hop: %s ajouté à la liste de recherche",
+		"cli.untracked":             "hop: %s retiré de la liste de recherche",
+		"cli.track_already":         "hop: %s déjà suivi",
+		"cli.track_not_found":       "hop: %s n'était pas suivi",
+		"cli.track_not_dir":         "hop: %s n'est pas un dossier",
+		"cli.import_no_zoxide":      "hop: zoxide introuvable dans le PATH ; installe-le d'abord (ex. brew install zoxide)",
+		"cli.import_failed":         "hop: échec de l'import zoxide : %v",
+		"cli.import_done":           "hop: %d importés, %d suivis, %d ignorés",
+		"cli.import_dry":            "hop: %d à importer, %d à suivre, %d à ignorer (simulation, rien écrit)",
+		"cli.import_unknown_source": "hop: source d'import inconnue %q (seul zoxide est supporté)",
+		"cli.import_unknown_flag":   "hop: option inconnue %q pour import",
+		"cli.config_created":        "hop: config créée dans %s",
+		"cli.config_saved":          "hop: config sauvegardée → %s",
+		"cli.scan_summary":          "hop: %d projets indexés dans %d catégories",
+		"cli.indexing":              "hop: indexation initiale…",
+		"cli.doctor.root":           "racine",
+		"cli.doctor.bin":            "binaire",
+		"cli.doctor.index_missing":  "ABSENT (lance `hop scan`)",
 		"cli.help": `hop · commutateur de projets
 
 Usage:
   hop setup              Configuration guidée au premier lancement (dossiers, éditeur, assistant)
   hop nav [mot-clé...]   Résout des mots-clés et imprime la cible (utilisé par p)
+  hop query [mot-clé...] Imprime le chemin du meilleur match (brut, pour scripts ; --list pour tous)
   hop scan               (Re)construit l'index des projets
   hop add <path>         Enregistre un accès (frécence)
   hop init zsh [--cmd N] Imprime l'intégration shell (fonction "p" par défaut)
@@ -266,6 +281,7 @@ Usage:
   hop unpin <mot-clé>    Retire un épinglage
   hop track <chemin>     Ajoute un dossier à la liste de recherche (même sans git)
   hop untrack <chemin>   Retire un dossier de la liste de recherche
+  hop import --from zoxide  Amorce le classement depuis zoxide (--dry-run pour prévisualiser)
   hop clean              Oublie les projets dont le dossier n'existe plus
   hop doctor             Diagnostic de configuration
   hop version            Affiche la version
@@ -305,7 +321,7 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"action.remote":      "abrir repo remoto",
 		"action.finder":      "abrir en Finder",
 		"action.filemanager": "abrir en el gestor de archivos",
-		"action.tmux":        "sesión tmux",
+		"action.mux":         "sesión %s",
 
 		"action.short.resume":      "reanudar",
 		"action.short.pin":         "fijar",
@@ -369,32 +385,39 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"setup.shell_present":    "Integración del shell ya presente en %s.",
 		"setup.shell_failed":     "hop: no se pudo escribir %s automáticamente.",
 
-		"cli.no_project":           "hop: ningún proyecto para %q",
-		"cli.no_index":             "hop: ningún proyecto indexado, ejecuta `hop scan`",
-		"cli.unsafe_path":          "hop: ruta con caracteres de control, acción rechazada",
-		"cli.frequent_header":      "hop · %d proyectos (sin terminal interactiva, lista de respaldo):",
-		"cli.tip":                  "consejo: p <palabra> [<palabra>...] para saltar, p - para volver",
-		"cli.no_prev":              "hop: sin proyecto anterior",
-		"cli.pruned":               "hop: %d ruta(s) muerta(s) eliminada(s)",
-		"cli.pinned":               "hop: %s fijado",
-		"cli.unpinned":             "hop: %s desfijado",
-		"cli.tracked":              "hop: %s añadido a la lista de búsqueda",
-		"cli.untracked":            "hop: %s eliminado de la lista de búsqueda",
-		"cli.track_already":        "hop: %s ya está en seguimiento",
-		"cli.track_not_found":      "hop: %s no estaba en seguimiento",
-		"cli.track_not_dir":        "hop: %s no es un directorio",
-		"cli.config_created":       "hop: config creada en %s",
-		"cli.config_saved":         "hop: config guardada → %s",
-		"cli.scan_summary":         "hop: %d proyectos indexados en %d categorías",
-		"cli.indexing":             "hop: indexación inicial…",
-		"cli.doctor.root":          "raíz",
-		"cli.doctor.bin":           "binario",
-		"cli.doctor.index_missing": "AUSENTE (ejecuta `hop scan`)",
+		"cli.no_project":            "hop: ningún proyecto para %q",
+		"cli.no_index":              "hop: ningún proyecto indexado, ejecuta `hop scan`",
+		"cli.unsafe_path":           "hop: ruta con caracteres de control, acción rechazada",
+		"cli.frequent_header":       "hop · %d proyectos (sin terminal interactiva, lista de respaldo):",
+		"cli.tip":                   "consejo: p <palabra> [<palabra>...] para saltar, p - para volver",
+		"cli.no_prev":               "hop: sin proyecto anterior",
+		"cli.pruned":                "hop: %d ruta(s) muerta(s) eliminada(s)",
+		"cli.pinned":                "hop: %s fijado",
+		"cli.unpinned":              "hop: %s desfijado",
+		"cli.tracked":               "hop: %s añadido a la lista de búsqueda",
+		"cli.untracked":             "hop: %s eliminado de la lista de búsqueda",
+		"cli.track_already":         "hop: %s ya está en seguimiento",
+		"cli.track_not_found":       "hop: %s no estaba en seguimiento",
+		"cli.track_not_dir":         "hop: %s no es un directorio",
+		"cli.import_no_zoxide":      "hop: zoxide no está en el PATH; instálalo primero (p. ej. brew install zoxide)",
+		"cli.import_failed":         "hop: falló la importación de zoxide: %v",
+		"cli.import_done":           "hop: %d importados, %d en seguimiento, %d omitidos",
+		"cli.import_dry":            "hop: %d a importar, %d a seguir, %d a omitir (simulación, no se escribió nada)",
+		"cli.import_unknown_source": "hop: fuente de importación desconocida %q (solo se admite zoxide)",
+		"cli.import_unknown_flag":   "hop: opción desconocida %q para import",
+		"cli.config_created":        "hop: config creada en %s",
+		"cli.config_saved":          "hop: config guardada → %s",
+		"cli.scan_summary":          "hop: %d proyectos indexados en %d categorías",
+		"cli.indexing":              "hop: indexación inicial…",
+		"cli.doctor.root":           "raíz",
+		"cli.doctor.bin":            "binario",
+		"cli.doctor.index_missing":  "AUSENTE (ejecuta `hop scan`)",
 		"cli.help": `hop · conmutador de proyectos
 
 Uso:
   hop setup              Configuración guiada inicial (carpetas, editor, asistente)
   hop nav [palabra...]   Resuelve palabras e imprime el destino (usado por p)
+  hop query [palabra...] Imprime la ruta del mejor resultado (texto plano, para scripts; --list para todos)
   hop scan               (Re)construye el índice de proyectos
   hop add <path>         Registra un acceso (frecencia)
   hop init zsh [--cmd N] Imprime la integración del shell (función "p" por defecto)
@@ -403,6 +426,7 @@ Uso:
   hop unpin <palabra>    Quita una fijación
   hop track <ruta>       Añade una carpeta a la lista de búsqueda (aunque sin git)
   hop untrack <ruta>     Quita una carpeta de la lista de búsqueda
+  hop import --from zoxide  Inicializa el ranking desde zoxide (--dry-run para previsualizar)
   hop clean              Olvida proyectos cuya carpeta ya no existe
   hop doctor             Diagnóstico de configuración
   hop version            Muestra la versión
@@ -442,7 +466,7 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"action.remote":      "abrir repo remoto",
 		"action.finder":      "abrir no Finder",
 		"action.filemanager": "abrir no gerenciador de arquivos",
-		"action.tmux":        "sessão tmux",
+		"action.mux":         "sessão %s",
 
 		"action.short.resume":      "retomar",
 		"action.short.pin":         "fixar",
@@ -506,32 +530,39 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"setup.shell_present":    "Integração do shell já presente em %s.",
 		"setup.shell_failed":     "hop: não foi possível escrever %s automaticamente.",
 
-		"cli.no_project":           "hop: nenhum projeto para %q",
-		"cli.no_index":             "hop: nenhum projeto indexado, execute `hop scan`",
-		"cli.unsafe_path":          "hop: caminho com caracteres de controle, ação recusada",
-		"cli.frequent_header":      "hop · %d projetos (sem terminal interativo, lista alternativa):",
-		"cli.tip":                  "dica: p <palavra> [<palavra>...] para saltar, p - para voltar",
-		"cli.no_prev":              "hop: sem projeto anterior",
-		"cli.pruned":               "hop: %d caminho(s) morto(s) removido(s)",
-		"cli.pinned":               "hop: %s fixado",
-		"cli.unpinned":             "hop: %s desafixado",
-		"cli.tracked":              "hop: %s adicionado à lista de busca",
-		"cli.untracked":            "hop: %s removido da lista de busca",
-		"cli.track_already":        "hop: %s já está na lista",
-		"cli.track_not_found":      "hop: %s não estava na lista",
-		"cli.track_not_dir":        "hop: %s não é um diretório",
-		"cli.config_created":       "hop: config criada em %s",
-		"cli.config_saved":         "hop: config salva → %s",
-		"cli.scan_summary":         "hop: %d projetos indexados em %d categorias",
-		"cli.indexing":             "hop: indexação inicial…",
-		"cli.doctor.root":          "raiz",
-		"cli.doctor.bin":           "binário",
-		"cli.doctor.index_missing": "AUSENTE (execute `hop scan`)",
+		"cli.no_project":            "hop: nenhum projeto para %q",
+		"cli.no_index":              "hop: nenhum projeto indexado, execute `hop scan`",
+		"cli.unsafe_path":           "hop: caminho com caracteres de controle, ação recusada",
+		"cli.frequent_header":       "hop · %d projetos (sem terminal interativo, lista alternativa):",
+		"cli.tip":                   "dica: p <palavra> [<palavra>...] para saltar, p - para voltar",
+		"cli.no_prev":               "hop: sem projeto anterior",
+		"cli.pruned":                "hop: %d caminho(s) morto(s) removido(s)",
+		"cli.pinned":                "hop: %s fixado",
+		"cli.unpinned":              "hop: %s desafixado",
+		"cli.tracked":               "hop: %s adicionado à lista de busca",
+		"cli.untracked":             "hop: %s removido da lista de busca",
+		"cli.track_already":         "hop: %s já está na lista",
+		"cli.track_not_found":       "hop: %s não estava na lista",
+		"cli.track_not_dir":         "hop: %s não é um diretório",
+		"cli.import_no_zoxide":      "hop: zoxide não encontrado no PATH; instale-o primeiro (ex. brew install zoxide)",
+		"cli.import_failed":         "hop: falha na importação do zoxide: %v",
+		"cli.import_done":           "hop: %d importados, %d na lista, %d ignorados",
+		"cli.import_dry":            "hop: %d a importar, %d a rastrear, %d a ignorar (simulação, nada gravado)",
+		"cli.import_unknown_source": "hop: fonte de importação desconhecida %q (apenas zoxide é suportado)",
+		"cli.import_unknown_flag":   "hop: opção desconhecida %q para import",
+		"cli.config_created":        "hop: config criada em %s",
+		"cli.config_saved":          "hop: config salva → %s",
+		"cli.scan_summary":          "hop: %d projetos indexados em %d categorias",
+		"cli.indexing":              "hop: indexação inicial…",
+		"cli.doctor.root":           "raiz",
+		"cli.doctor.bin":            "binário",
+		"cli.doctor.index_missing":  "AUSENTE (execute `hop scan`)",
 		"cli.help": `hop · alternador de projetos
 
 Uso:
   hop setup              Configuração guiada inicial (pastas, editor, assistente)
   hop nav [palavra...]   Resolve palavras e imprime o destino (usado por p)
+  hop query [palavra...] Imprime o caminho do melhor resultado (texto puro, para scripts; --list para todos)
   hop scan               (Re)constrói o índice de projetos
   hop add <path>         Registra um acesso (frecência)
   hop init zsh [--cmd N] Imprime a integração do shell (função "p" por padrão)
@@ -540,6 +571,7 @@ Uso:
   hop unpin <palavra>    Remove uma fixação
   hop track <caminho>    Adiciona uma pasta à lista de busca (mesmo sem git)
   hop untrack <caminho>  Remove uma pasta da lista de busca
+  hop import --from zoxide  Inicializa o ranking a partir do zoxide (--dry-run para pré-visualizar)
   hop clean              Esquece projetos cuja pasta não existe mais
   hop doctor             Diagnóstico de configuração
   hop version            Mostra a versão

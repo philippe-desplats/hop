@@ -25,11 +25,11 @@ type Outcome struct {
 
 // Options tune the action set from user settings.
 type Options struct {
-	Editor   string              // command for the "open in editor" action (default zed)
-	ShowTmux bool                // include the tmux action
-	AI       Assistant           // assistant bound to c/r (resolved by ResolveAssistant)
-	HasAI    bool                // false when no assistant is installed (c/r hidden)
-	Custom   []core.CustomAction // user-defined [[actions.custom]] entries
+	Editor      string              // command for the "open in editor" action (default zed)
+	Multiplexer string              // resolved multiplexer for the t action: "tmux", "zellij", or "" (hidden)
+	AI          Assistant           // assistant bound to c/r (resolved by ResolveAssistant)
+	HasAI       bool                // false when no assistant is installed (c/r hidden)
+	Custom      []core.CustomAction // user-defined [[actions.custom]] entries
 }
 
 // Spec is a single Hub action.
@@ -105,13 +105,11 @@ func All(o Options) []Spec {
 			return Outcome{Cd: p.Path}
 		}},
 	)
-	if o.ShowTmux {
-		specs = append(specs, Spec{Key: "t", Label: i18n.T("action.tmux"), Short: "tmux", do: func(p core.Project) Outcome {
-			name := strings.Trim(sessionRe.ReplaceAllString(p.Name, "-"), "-")
-			if name == "" {
-				name = "hop"
-			}
-			return Outcome{Cd: p.Path, Run: "tmux new-session -A -s " + name}
+	if o.Multiplexer != "" {
+		mux := o.Multiplexer
+		specs = append(specs, Spec{Key: "t", Label: i18n.Tf("action.mux", mux), Short: mux, do: func(p core.Project) Outcome {
+			cmd := multiplexerRun(mux, sessionName(p), p.Path, insideTmux(), insideZellij())
+			return Outcome{Cd: p.Path, Run: cmd}
 		}})
 	}
 	for _, c := range o.Custom {

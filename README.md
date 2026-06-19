@@ -29,12 +29,13 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 - **Guided first-run setup** (`hop setup`): detects your project folders, editor and AI assistant, then indexes everything.
 - **Instant jump by keyword**, ranked by frecency (`p api`).
 - **Ordered multi-keyword matching** to narrow by sub-path (`p acme web`).
-- **Interactive fuzzy Hub** with a per-project action menu: cd, editor, AI assistant, git, remote, file manager, tmux, and your own custom actions.
+- **Interactive fuzzy Hub** with a per-project action menu: cd, editor, AI assistant, git, remote, file manager, tmux or zellij session, and your own custom actions.
 - **AI-agnostic**: the assistant keys auto-detect Claude, Codex, Aider or Gemini, and you can pin a specific one in config.
 - **Pin favorites** so they float to the top of the Hub, from the CLI or with a single key in the Hub.
 - **Jump back** to where you were with `p -` (and `p -2`, `p -3`).
 - **Forgets dead paths**: projects whose folder is gone are pruned.
 - **Track any folder** in the search list, even without a git repo, with `hop track ~/Downloads` (it survives every rescan).
+- **Import from zoxide** with `hop import --from zoxide`: keep your learned ranking when you switch.
 - **Multi-shell**: zsh, bash and fish, with TAB-completion of project names.
 - **Adaptive light and dark themes**, UI in English, French, Spanish and Portuguese.
 - **TOML configuration** with an interactive editor (`hop config`).
@@ -112,15 +113,37 @@ hop pin web      # pin a project so it floats to the top of the Hub (marked with
 hop unpin web    # remove a pin
 hop track ~/Downloads    # add any folder to the search list, even without git
 hop untrack ~/Downloads  # remove it from the list again
+hop import --from zoxide  # seed ranking from zoxide (add --dry-run to preview)
 hop scan         # reindex on demand
 hop clean        # forget projects whose folder no longer exists
 hop setup        # re-run the guided first-run setup
 hop doctor       # configuration diagnostics
 ```
 
-In the Hub, type to filter, `Tab` opens the action menu, and from there a single key fires an action: `z` editor, `c` AI assistant, `r` resume (when the assistant supports it), `g` git, `o` remote, `f` file manager, `t` tmux (when enabled), `p` pin, plus any custom action you defined. The `o` and `f` actions use `open` on macOS and `xdg-open` on Linux, and hide themselves when neither is available.
+In the Hub, type to filter, `Tab` opens the action menu, and from there a single key fires an action: `z` editor, `c` AI assistant, `r` resume (when the assistant supports it), `g` git, `o` remote, `f` file manager, `t` tmux or zellij session, `p` pin, plus any custom action you defined. The `o` and `f` actions use `open` on macOS and `xdg-open` on Linux, and hide themselves when neither is available. The `t` action attaches (or creates) a session named after the project, never nests when you are already inside one, and is controlled by `[actions] multiplexer = "auto" | "tmux" | "zellij" | "off"` (it hides when the chosen multiplexer is not installed).
 
 Keywords are ordered and each must appear in the path (the `zoxide` model). A freshly created project is found automatically: on a miss, `hop` reindexes once and retries before giving up.
+
+`hop query` prints the resolved path as plain text (no cd, no sentinel), so you can compose it with other tools:
+
+```sh
+cd "$(hop query api)"           # cd without the p() function
+hop query --list | fzf          # pipe every project into fzf
+code "$(hop query acme web)"    # open the match in another tool
+```
+
+## Coming from zoxide
+
+If you already run [zoxide](https://github.com/ajeetdsouza/zoxide), `hop import --from zoxide` seeds hop from your learned history so you do not start cold:
+
+```sh
+hop import --from zoxide --dry-run   # preview what would be imported
+hop import --from zoxide             # do it
+```
+
+It reads `zoxide query --list --score` (the stable text interface, never the binary database). For each directory zoxide knows: a git repository hop does not already index is added to the search list and its rank is seeded, a directory hop already indexes is just re-ranked, and anything else is skipped. It always prints `imported N, tracked M, skipped K`, and needs the `zoxide` binary on `PATH`.
+
+`hop` then ages frecency the way zoxide does: once the total rank mass passes an internal cap, every rank is scaled down and stale entries are dropped, so a project you used heavily last year stops outranking the one you are on today.
 
 ## Try it without touching your setup
 
@@ -156,7 +179,9 @@ action_access = "tab"
 
 [actions]
 editor = "zed"           # single executable for the "open in editor" action
-show_tmux = false        # show the tmux action in the menu
+show_tmux = false        # legacy: show the tmux action (superseded by multiplexer)
+# multiplexer = "auto"   # t action: auto (tmux else zellij), tmux, zellij, or off;
+                         # wins over show_tmux, hides when the chosen one is absent
 
 # Optional custom actions, each adds a key to the menu:
 # [[actions.custom]]

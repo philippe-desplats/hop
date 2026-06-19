@@ -46,7 +46,7 @@ func TestStyledPathPreservesText(t *testing.T) {
 
 func TestShiftLegend(t *testing.T) {
 	p := core.Project{Name: "x", Path: "/tmp/hop-no-such-repo-xyz"} // not a git repo
-	opts := action.Options{Editor: "zed", ShowTmux: true, AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
+	opts := action.Options{Editor: "zed", Multiplexer: "tmux", AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
 	leg := shiftLegend(p, opts, false)
 	// Platform-independent actions only; the opener-gated file-manager/remote
 	// actions are covered in the action package where PATH can be stubbed.

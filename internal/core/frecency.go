@@ -11,6 +11,12 @@ import (
 
 const frecencyVersion = 1
 
+// maxAge bounds the total rank mass of the frecency table. Once the sum of all
+// ranks exceeds it, every rank is scaled down proportionally (zoxide's aging
+// model), so fresh projects can overtake formerly hot ones instead of fighting
+// an ever-growing rank forever.
+const maxAge = 10000
+
 type fEntry struct {
 	Rank       float64 `json:"rank"`
 	LastAccess int64   `json:"last_access"` // unix seconds
@@ -65,8 +71,68 @@ func AddFrecency(path string, now time.Time, blocking bool) (bool, error) {
 		}
 		e.Rank++
 		e.LastAccess = now.Unix()
+		ageEntries(f.Entries)
 		return nil
 	})
+}
+
+// ageEntries caps the table's total rank mass. When the sum of all ranks
+// exceeds maxAge it scales every rank by maxAge/sum, then drops entries whose
+// rank fell below 1 (they have lost their learned signal). LastAccess is left
+// untouched so recency buckets stay accurate. Pure helper for testability.
+func ageEntries(entries map[string]*fEntry) {
+	sum := 0.0
+	for _, e := range entries {
+		if e != nil {
+			sum += e.Rank
+		}
+	}
+	if sum <= maxAge {
+		return
+	}
+	factor := maxAge / sum
+	for path, e := range entries {
+		if e == nil {
+			delete(entries, path)
+			continue
+		}
+		e.Rank *= factor
+		if e.Rank < 1 {
+			delete(entries, path)
+		}
+	}
+}
+
+// SeedFrecency bulk-seeds ranks in a single atomic write, used by `hop import`.
+// Each path's rank is raised to at least the seeded value (an existing higher
+// rank is never lowered) and its LastAccess is stamped to now. Aging runs once
+// at the end so a large import is bounded without aging each seed in turn.
+func SeedFrecency(seeds map[string]float64, now time.Time) error {
+	if len(seeds) == 0 {
+		return nil
+	}
+	f := emptyFrecency()
+	_, err := store.Update(FrecencyPath(), f, true, func() error {
+		if f.Version != frecencyVersion || f.Entries == nil {
+			f.Version = frecencyVersion
+			f.Entries = map[string]*fEntry{}
+		}
+		ts := now.Unix()
+		for path, rank := range seeds {
+			e := f.Entries[path]
+			if e == nil {
+				e = &fEntry{}
+				f.Entries[path] = e
+			}
+			if rank > e.Rank {
+				e.Rank = rank
+			}
+			e.LastAccess = ts
+		}
+		ageEntries(f.Entries)
+		return nil
+	})
+	return err
 }
 
 // NthMostRecentExcept returns the nth most recently accessed entry (n=1 is the

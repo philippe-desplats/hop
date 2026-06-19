@@ -58,6 +58,10 @@ _hop_seed_repo work/web-monorepo 3
 _hop_seed_repo side/blog 14 trunk
 _hop_seed_repo experiments/llm-playground 1
 
+# A plain, non-git folder the scanner skips on purpose (top-level, no repo below),
+# so the demo can show `hop track` adding an arbitrary folder to the search list.
+mkdir -p "$HOP_DEMO_DIR/downloads"
+
 # Show the scan root as ~/... in `hop config` (hop expands ~ at load time, so the
 # scan still works) instead of an absolute /Users/... path that would leak a
 # username into a recording, when the demo dir lives under $HOME.

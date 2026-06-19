@@ -59,7 +59,15 @@ Enter Sleep 1400ms
 Type "p -" Sleep 600ms Enter
 Sleep 1500ms
 
-# 9. Everything is configurable from an interactive editor (no saving here).
+# 9. Track any folder, even a non-git one, to add it to the search list.
+Type "hop track ~/hop-demo/downloads" Sleep 700ms Enter
+Sleep 1500ms
+
+# 10. It is now jumpable like any other project.
+Type "p down" Sleep 700ms Enter
+Sleep 1600ms
+
+# 11. Everything is configurable from an interactive editor (no saving here).
 Type "hop config" Sleep 500ms Enter
 Sleep 1600ms
 Down Sleep 700ms

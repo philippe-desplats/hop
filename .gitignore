@@ -6,8 +6,5 @@
 *.out
 /dist/
 
-# Internal tooling artifacts (not for the remote)
-.claude/
-
 # macOS
 .DS_Store

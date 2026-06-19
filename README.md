@@ -42,12 +42,17 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 ### 1. Get the binary
 
 ```sh
-# Homebrew (after the first tagged release)
+# Homebrew
 brew install philippe-desplats/tap/hop
 
-# or from source, with Go 1.24+
+# or with Go 1.24+
 go install github.com/philippe-desplats/hop/cmd/hop@latest
+
+# or without either: download the release binary for your OS/arch
+curl -fsSL https://raw.githubusercontent.com/philippe-desplats/hop/master/install.sh | sh
 ```
+
+The script verifies the SHA-256 checksum, installs to `~/.local/bin` (override with `HOP_INSTALL_DIR`), and prints what to do next.
 
 ### 2. Run the guided setup
 

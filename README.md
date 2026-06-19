@@ -16,7 +16,7 @@ Jump to any project by frecency, then drop into your editor, your AI assistant, 
 
 </div>
 
-Where `zoxide` stops at `cd`, `hop` keeps going: one keystroke takes you from "which project was that again" to "open, and start working".
+Where [`zoxide`](https://github.com/ajeetdsouza/zoxide) stops at `cd`, `hop` keeps going: one keystroke takes you from "which project was that again" to "open, and start working".
 
 ## Why
 
@@ -228,6 +228,10 @@ Bug reports, feature ideas and pull requests are welcome. See [CONTRIBUTING.md](
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report a vulnerability and the project's supply-chain posture.
+
+## Acknowledgements
+
+`hop` is inspired by [zoxide](https://github.com/ajeetdsouza/zoxide). The print-a-target shell model, the frecency ranking, and the rank-aging algorithm all build on the ground zoxide broke; `hop` extends that idea past `cd` into per-project actions. If you only want a smarter `cd`, zoxide is excellent, and `hop import --from zoxide` carries your history over. Thanks also to the [Charm](https://github.com/charmbracelet) projects (Bubble Tea, Lip Gloss) that power the interactive Hub.
 
 ## License
 

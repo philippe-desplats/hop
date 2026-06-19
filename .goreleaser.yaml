@@ -32,17 +32,16 @@ checksum:
 sboms:
   - artifacts: archive
 
-# Keyless cosign signature over the checksums file (OIDC in CI).
+# Keyless cosign signature over the checksums file (OIDC in CI). cosign v3 writes
+# one Sigstore bundle (.sigstore.json) instead of separate .sig/.pem files.
 signs:
   - cmd: cosign
     artifacts: checksum
     output: true
-    certificate: "${artifact}.pem"
-    signature: "${artifact}.sig"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - "--output-signature=${signature}"
-      - "--output-certificate=${certificate}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes"
 

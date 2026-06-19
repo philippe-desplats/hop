@@ -62,6 +62,10 @@ hop runs on macOS and Linux (amd64 and arm64). Homebrew casks are macOS only, so
 hop setup
 ```
 
+<div align="center">
+<img src="docs/demo-setup.gif" alt="hop setup walkthrough" width="720" />
+</div>
+
 A short wizard detects your project folders (any home folder holding git repos, preselected), your editor (Cursor, VS Code, Zed, ...) and your AI assistant, writes `~/.config/hop/config.toml`, builds the index, and offers to wire the shell integration into your shell config for you. With no interactive terminal it falls back to sensible auto-detected defaults and prints the line to add manually. You can re-run it anytime, or adjust everything later with `hop config`.
 
 ### 3. Wire the shell integration

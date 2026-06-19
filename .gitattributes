@@ -2,6 +2,7 @@
 # GitHub Linguist keeps the repository's language stats focused on the Go code.
 sample/** linguist-vendored
 
-# The demo GIF is generated from sample/demo.tape, collapse it in diffs.
+# The demo GIFs are generated from the sample tapes, collapse them in diffs.
 docs/demo.gif linguist-generated
+docs/demo-setup.gif linguist-generated
 *.gif binary

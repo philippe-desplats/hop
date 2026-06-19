@@ -15,12 +15,15 @@ p            # open the Hub, then type to filter, Tab for actions
 p -          # jump back
 ```
 
-## Regenerate the README GIF
+## Regenerate the README GIFs
 
 ```sh
-brew install vhs        # needs ttyd and ffmpeg too
-vhs sample/demo.tape    # writes docs/demo.gif
+brew install vhs            # needs ttyd and ffmpeg too
+vhs sample/demo.tape        # writes docs/demo.gif (daily usage)
+vhs sample/setup-demo.tape  # writes docs/demo-setup.gif (the hop setup wizard)
 ```
+
+`setup-demo.tape` sources `setup-demo.sh`, which builds a throwaway `$HOME` with sample project folders and stub editors/AI tools and a controlled `PATH`, so the wizard renders the same on any machine and never touches your real home.
 
 ## The sample projects
 

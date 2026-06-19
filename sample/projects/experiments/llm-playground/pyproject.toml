@@ -1,0 +1,5 @@
+[project]
+name = "llm-playground"
+version = "0.1.0"
+description = "Sample project for the hop demo"
+requires-python = ">=3.11"

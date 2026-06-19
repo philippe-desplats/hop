@@ -1,0 +1,7 @@
+# The sample workspace is demo tooling, not product source. Mark it vendored so
+# GitHub Linguist keeps the repository's language stats focused on the Go code.
+sample/** linguist-vendored
+
+# The demo GIF is generated from sample/demo.tape, collapse it in diffs.
+docs/demo.gif linguist-generated
+*.gif binary

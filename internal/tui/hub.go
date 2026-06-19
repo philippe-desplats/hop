@@ -199,6 +199,19 @@ func (m *model) refilter() {
 	}
 }
 
+// togglePin pins or unpins p, persists it, and refreshes the list (re-floating
+// favorites on the bare list).
+func (m *model) togglePin(p core.Project) {
+	if m.pinned[p.Path] {
+		_, _ = core.RemovePin(p.Path)
+		delete(m.pinned, p.Path)
+	} else {
+		_, _ = core.AddPin(p.Path)
+		m.pinned[p.Path] = true
+	}
+	m.refilter()
+}
+
 func (m model) current() *core.Project {
 	if m.cursor >= 0 && m.cursor < len(m.matches) {
 		p := m.matches[m.cursor].Project
@@ -300,6 +313,10 @@ func (m model) updateActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.chosen = nil
 		return m, tea.Quit
 	case "esc", "tab":
+		m.mode = modeList
+		return m, nil
+	case "p":
+		m.togglePin(*p)
 		m.mode = modeList
 		return m, nil
 	default:
@@ -532,6 +549,11 @@ func (m model) viewActions() string {
 		}
 		b.WriteString("  " + keyStyle.Render(fmt.Sprintf("%-3s", key)) + s.Label + "\n")
 	}
+	pinLabel := i18n.T("action.pin")
+	if m.pinned[p.Path] {
+		pinLabel = i18n.T("action.unpin")
+	}
+	b.WriteString("  " + keyStyle.Render(fmt.Sprintf("%-3s", "p")) + warnStyle.Render("★ ") + pinLabel + "\n")
 	b.WriteString("\n" + dimStyle.Render(i18n.T("hub.actions.hint")))
 	return b.String()
 }

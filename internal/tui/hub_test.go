@@ -90,6 +90,32 @@ func TestHubPinnedFloatsFirst(t *testing.T) {
 	}
 }
 
+func TestHubTogglePin(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", aiOpts(), core.DefaultWeights())
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab}) // open the action menu
+	p := m.(model).current()
+	if p == nil {
+		t.Fatal("no current project")
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}) // pin
+	mm := m.(model)
+	if mm.mode != modeList {
+		t.Error("toggling pin should return to the list")
+	}
+	if !mm.pinned[p.Path] {
+		t.Errorf("%s should be pinned after toggle", p.Path)
+	}
+	if !core.LoadPins().Set()[p.Path] {
+		t.Error("pin should be persisted to disk")
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}) // unpin
+	if m.(model).pinned[p.Path] {
+		t.Error("second toggle should unpin")
+	}
+}
+
 func TestHubFilterAndSelect(t *testing.T) {
 	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
 	m = typeRunes(m, "ops")

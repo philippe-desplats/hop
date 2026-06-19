@@ -72,9 +72,10 @@ type CustomAction struct {
 }
 
 type ScanSettings struct {
-	Roots    []string `toml:"roots"`
-	MaxDepth int      `toml:"max_depth"`
-	Ignore   []string `toml:"ignore"`
+	Roots     []string `toml:"roots"`
+	MaxDepth  int      `toml:"max_depth"`
+	Ignore    []string `toml:"ignore"`
+	Worktrees bool     `toml:"worktrees"` // also index git worktrees living outside the roots
 }
 
 func DefaultSettings() Settings {
@@ -199,6 +200,8 @@ show_tmux = %t
 roots = %s
 max_depth = %d
 ignore = %s
+# Indexer aussi les worktrees git situés hors des racines (un appel git par dépôt au scan).
+worktrees = %t
 
 [resolver]
 # Classement d'un fragment : poids de la qualité de match vs frécence.
@@ -208,7 +211,7 @@ w_frecency = %g
 min_margin = %g
 `,
 		s.UI.Language, s.UI.Theme, s.AI.Tool, s.Shell.Command, s.Hub.ActionAccess, s.Actions.Editor, s.Actions.ShowTmux,
-		quote(s.Scan.Roots), s.Scan.MaxDepth, quote(s.Scan.Ignore),
+		quote(s.Scan.Roots), s.Scan.MaxDepth, quote(s.Scan.Ignore), s.Scan.Worktrees,
 		s.Resolver.WFuzzy, s.Resolver.WFrecency, s.Resolver.MinMargin)
 }
 

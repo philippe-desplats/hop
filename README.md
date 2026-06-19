@@ -36,6 +36,7 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 - **Forgets dead paths**: projects whose folder is gone are pruned.
 - **Track any folder** in the search list, even without a git repo, with `hop track ~/Downloads` (it survives every rescan).
 - **Import from zoxide** with `hop import --from zoxide`: keep your learned ranking when you switch.
+- **Git worktree aware** (opt-in): index linked worktrees that live outside your roots, the usual `../project-feature` layout.
 - **Multi-shell**: zsh, bash and fish, with TAB-completion of project names.
 - **Adaptive light and dark themes**, UI in English, French, Spanish and Portuguese.
 - **TOML configuration** with an interactive editor (`hop config`).
@@ -195,6 +196,7 @@ show_tmux = false        # legacy: show the tmux action (superseded by multiplex
 roots = ["~/Projects"]   # where to look for projects
 max_depth = 7
 ignore = ["node_modules", "vendor", "_archives"]
+worktrees = false        # also index git worktrees living outside the roots (one git call per repo at scan time)
 
 [resolver]
 # Ranking weights for a one-shot jump, and the margin below which the Hub opens

@@ -46,13 +46,18 @@ func LoadIndex() (*Index, error) {
 	return idx, nil
 }
 
-// BuildIndex scans the tree without persisting. Folders the user tracked with
-// `hop track` are merged in, so they survive every rescan.
+// BuildIndex scans the tree without persisting. With [scan] worktrees enabled,
+// git worktrees living outside the roots are folded in. Folders the user tracked
+// with `hop track` are merged in last, so they survive every rescan.
 func BuildIndex(cfg Config) *Index {
+	projects := Scan(cfg)
+	if cfg.Worktrees {
+		projects = expandWorktrees(projects)
+	}
 	return &Index{
 		Version:   indexVersion,
 		ScannedAt: time.Now().Unix(),
-		Projects:  mergeExtras(Scan(cfg)),
+		Projects:  mergeExtras(projects),
 	}
 }
 

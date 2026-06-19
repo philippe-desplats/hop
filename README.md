@@ -45,7 +45,7 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 # Homebrew
 brew install philippe-desplats/tap/hop
 
-# or with Go 1.24+
+# or with Go 1.25+
 go install github.com/philippe-desplats/hop/cmd/hop@latest
 
 # or without either: download the release binary for your OS/arch
@@ -191,6 +191,10 @@ go build ./...
 go test ./...
 go vet ./...
 ```
+
+## Contributing
+
+Bug reports, feature ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report issues, the contribution flow, and the requirements a change must meet to be merged.
 
 ## Security
 

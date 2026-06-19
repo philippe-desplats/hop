@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Please report security issues privately, not through public issues. Open a private advisory with the "Report a vulnerability" button under this repository's Security tab.
+Please report security issues privately, not through public issues. Open a private advisory at https://github.com/philippe-desplats/hop/security/advisories/new (the "Report a vulnerability" button under this repository's Security tab).
 
 Include a description, reproduction steps, and the affected version (`hop version`). Expect an acknowledgement within 72 hours and a remediation plan once the report is triaged.
 

@@ -46,8 +46,9 @@ func TestStyledPathPreservesText(t *testing.T) {
 
 func TestShiftLegend(t *testing.T) {
 	p := core.Project{Name: "x", Path: "/tmp/hop-no-such-repo-xyz"} // not a git repo
-	leg := shiftLegend(p, action.Options{Editor: "zed", ShowTmux: true, AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true})
-	for _, want := range []string{"zed", "claude", "resume", "Finder", "tmux", "★"} {
+	opts := action.Options{Editor: "zed", ShowTmux: true, AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
+	leg := shiftLegend(p, opts, false)
+	for _, want := range []string{"zed", "claude", "resume", "Finder", "tmux", "pin"} {
 		if !strings.Contains(leg, want) {
 			t.Errorf("legend missing %q: %s", want, leg)
 		}

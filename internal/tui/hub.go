@@ -369,7 +369,7 @@ func (m model) viewList() string {
 	}
 	if m.access == "shift" {
 		if p := m.current(); p != nil {
-			b.WriteString("  " + shiftLegend(*p, m.opts) + "\n")
+			b.WriteString("  " + shiftLegend(*p, m.opts, m.pinned[p.Path]) + "\n")
 		}
 	}
 	hint := i18n.T("hub.hint.tab")
@@ -522,7 +522,7 @@ func (m model) gitPreview() string {
 
 // shiftLegend lists the uppercase-letter shortcuts available for p, so the shift
 // mode is discoverable instead of invisible.
-func shiftLegend(p core.Project, opts action.Options) string {
+func shiftLegend(p core.Project, opts action.Options, pinned bool) string {
 	var b strings.Builder
 	b.WriteString(dimStyle.Render(i18n.T("hub.shift_prefix")))
 	first := true
@@ -539,7 +539,11 @@ func shiftLegend(p core.Project, opts action.Options) string {
 	if !first {
 		b.WriteString(dimStyle.Render(" · "))
 	}
-	b.WriteString(keyStyle.Render("P") + dimStyle.Render(" ") + warnStyle.Render("★"))
+	pinShort := i18n.T("action.short.pin")
+	if pinned {
+		pinShort = i18n.T("action.short.unpin")
+	}
+	b.WriteString(keyStyle.Render("P") + dimStyle.Render(" "+pinShort))
 	return b.String()
 }
 

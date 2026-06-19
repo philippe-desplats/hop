@@ -33,6 +33,8 @@ var catalog = map[Lang]map[string]string{
 		"action.tmux":      "tmux session",
 
 		"action.short.resume": "resume",
+		"action.short.pin":    "pin",
+		"action.short.unpin":  "unpin",
 		"action.pin":          "pin to favorites",
 		"action.unpin":        "remove from favorites",
 		"action.short.remote": "remote",
@@ -123,6 +125,8 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zsh_init:
 		"action.tmux":      "session tmux",
 
 		"action.short.resume": "reprise",
+		"action.short.pin":    "épingler",
+		"action.short.unpin":  "désépingler",
 		"action.pin":          "ajouter aux favoris",
 		"action.unpin":        "retirer des favoris",
 		"action.short.remote": "distant",
@@ -213,6 +217,8 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zsh_init :
 		"action.tmux":      "sesión tmux",
 
 		"action.short.resume": "reanudar",
+		"action.short.pin":    "fijar",
+		"action.short.unpin":  "desfijar",
 		"action.pin":          "añadir a favoritos",
 		"action.unpin":        "quitar de favoritos",
 		"action.short.remote": "remoto",
@@ -303,6 +309,8 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zsh_init:
 		"action.tmux":      "sessão tmux",
 
 		"action.short.resume": "retomar",
+		"action.short.pin":    "fixar",
+		"action.short.unpin":  "desafixar",
 		"action.pin":          "adicionar aos favoritos",
 		"action.unpin":        "remover dos favoritos",
 		"action.short.remote": "remoto",

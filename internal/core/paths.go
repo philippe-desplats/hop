@@ -62,6 +62,22 @@ func DisplayPath(path string, roots []string) string {
 	return path
 }
 
+// HomeRelative collapses a leading $HOME to ~, for portable display and config
+// storage. Paths outside home (or when home is unknown) are returned unchanged.
+func HomeRelative(p string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	if p == home {
+		return "~"
+	}
+	if strings.HasPrefix(p, home+string(os.PathSeparator)) {
+		return "~" + p[len(home):]
+	}
+	return p
+}
+
 // UnderRoots reports whether p sits inside one of the configured roots.
 func UnderRoots(p string, roots []string) bool {
 	p = CanonicalDir(p)

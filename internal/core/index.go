@@ -26,6 +26,13 @@ type Index struct {
 // IndexPath is the canonical location of the index file.
 func IndexPath() string { return filepath.Join(StateDir(), "index.json") }
 
+// HasIndex reports whether an index file exists on disk, used to detect a
+// first run and nudge the user toward `hop setup`.
+func HasIndex() bool {
+	_, err := os.Stat(IndexPath())
+	return err == nil
+}
+
 // LoadIndex reads the index, returning ErrStaleIndex on a version mismatch and
 // store.ErrCorrupt / os.ErrNotExist as appropriate.
 func LoadIndex() (*Index, error) {

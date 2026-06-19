@@ -95,6 +95,9 @@ func pinOrUnpin(args []string, pin bool) {
 
 func cmdNav(args []string) {
 	settings := core.LoadSettings()
+	if !core.HasIndex() {
+		fmt.Fprintln(os.Stderr, i18n.T("cli.setup_hint")) // first run: point at `hop setup`
+	}
 	cfg := core.ScanConfig(settings)
 	idx, _ := core.LoadIndexOrBuild(cfg, true)
 	frec := core.LoadFrecency()
@@ -309,13 +312,22 @@ func cmdDoctor(_ []string) {
 		}
 		fmt.Printf("  %-8s %-42s %s\n", rootLbl, r, status)
 	}
-	for _, bin := range []string{"zed", "claude", "git", "tmux"} {
+	for _, bin := range []string{settings.Actions.Editor, "git", "tmux"} {
 		status := "OK"
 		if _, err := exec.LookPath(bin); err != nil {
 			status = "✗"
 		}
 		fmt.Printf("  %-8s %-42s %s\n", binLbl, bin, status)
 	}
+	var editorBins []string
+	for _, e := range action.DetectEditors() {
+		editorBins = append(editorBins, e.Bin)
+	}
+	edlist := strings.Join(editorBins, ", ")
+	if edlist == "" {
+		edlist = "(none found)"
+	}
+	fmt.Printf("  %-8s %-42s %s\n", "editor", edlist, "active: "+settings.Actions.Editor)
 	list := strings.Join(action.DetectAssistants(), ", ")
 	if list == "" {
 		list = "(none found)"

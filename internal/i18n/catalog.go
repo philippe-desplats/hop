@@ -59,6 +59,28 @@ var catalog = map[Lang]map[string]string{
 		"config.opt.yes":        "yes",
 		"config.hint":           "↑↓ field · ←→ value · type to edit · enter/ctrl+s save · esc cancel",
 
+		"cli.setup_hint":      "hop: no projects indexed yet, run `hop setup` to choose your project folders",
+		"setup.title":         "hop · setup",
+		"setup.roots.title":   "Which folders hold your projects?",
+		"setup.roots.empty":   "No common project folder found under your home. You can add roots later with hop config.",
+		"setup.roots.repos":   "%d repos",
+		"setup.editor.title":  "Open projects in which editor?",
+		"setup.editor.empty":  "No known editor found on PATH. You can set one later with hop config.",
+		"setup.ai.title":      "Which AI assistant for the c / r keys?",
+		"setup.ai.auto":       "auto (first installed)",
+		"setup.ai.none":       "none found on PATH; auto stays empty until you install one.",
+		"setup.hint.multi":    "↑↓ move · space toggle · enter next · esc cancel",
+		"setup.hint.single":   "↑↓ move · enter next · esc cancel",
+		"setup.hint.next":     "enter continue · esc cancel",
+		"setup.hint.confirm":  "enter save & scan · esc cancel",
+		"setup.confirm.title": "Ready to write your config",
+		"setup.row.roots":     "folders",
+		"setup.row.editor":    "editor",
+		"setup.row.ai":        "assistant",
+		"setup.cancelled":     "hop: setup cancelled, nothing written",
+		"setup.done":          "hop: ready, %d projects indexed",
+		"setup.shell_hint":    "Last step, add this to %s then restart your shell:",
+
 		"cli.no_project":           "hop: no project for %q",
 		"cli.no_index":             "hop: no project indexed, run `hop scan`",
 		"cli.unsafe_path":          "hop: refusing a path with control characters",
@@ -78,6 +100,7 @@ var catalog = map[Lang]map[string]string{
 		"cli.help": `hop · project switcher
 
 Usage:
+  hop setup              Guided first-run setup (folders, editor, assistant)
   hop nav [keyword...]   Resolve keywords and print the target (used by p)
   hop scan               (Re)build the project index
   hop add <path>         Record a visit (frecency)
@@ -152,6 +175,28 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"config.opt.yes":        "oui",
 		"config.hint":           "↑↓ champ · ←→ valeur · taper pour éditer · entrée/ctrl+s sauver · échap annuler",
 
+		"cli.setup_hint":      "hop : aucun projet indexé pour l'instant, lance `hop setup` pour choisir tes dossiers de projets",
+		"setup.title":         "hop · installation",
+		"setup.roots.title":   "Quels dossiers contiennent tes projets ?",
+		"setup.roots.empty":   "Aucun dossier de projets courant trouvé dans ton home. Tu pourras ajouter des racines plus tard avec hop config.",
+		"setup.roots.repos":   "%d dépôts",
+		"setup.editor.title":  "Ouvrir les projets dans quel éditeur ?",
+		"setup.editor.empty":  "Aucun éditeur connu trouvé dans le PATH. Tu pourras en définir un plus tard avec hop config.",
+		"setup.ai.title":      "Quel assistant IA pour les touches c / r ?",
+		"setup.ai.auto":       "auto (le premier installé)",
+		"setup.ai.none":       "aucun trouvé dans le PATH ; auto restera vide tant que tu n'en installes pas.",
+		"setup.hint.multi":    "↑↓ naviguer · espace cocher · entrée suivant · échap annuler",
+		"setup.hint.single":   "↑↓ naviguer · entrée suivant · échap annuler",
+		"setup.hint.next":     "entrée continuer · échap annuler",
+		"setup.hint.confirm":  "entrée sauver & scanner · échap annuler",
+		"setup.confirm.title": "Prêt à écrire ta configuration",
+		"setup.row.roots":     "dossiers",
+		"setup.row.editor":    "éditeur",
+		"setup.row.ai":        "assistant",
+		"setup.cancelled":     "hop : installation annulée, rien n'a été écrit",
+		"setup.done":          "hop : prêt, %d projets indexés",
+		"setup.shell_hint":    "Dernière étape, ajoute ceci à %s puis relance ton shell :",
+
 		"cli.no_project":           "hop: aucun projet pour %q",
 		"cli.no_index":             "hop: aucun projet indexé, lance `hop scan`",
 		"cli.unsafe_path":          "hop : chemin contenant des caractères de contrôle, action refusée",
@@ -171,6 +216,7 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"cli.help": `hop · commutateur de projets
 
 Usage:
+  hop setup              Configuration guidée au premier lancement (dossiers, éditeur, assistant)
   hop nav [mot-clé...]   Résout des mots-clés et imprime la cible (utilisé par p)
   hop scan               (Re)construit l'index des projets
   hop add <path>         Enregistre un accès (frécence)
@@ -245,6 +291,28 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"config.opt.yes":        "sí",
 		"config.hint":           "↑↓ campo · ←→ valor · escribe para editar · enter/ctrl+s guardar · esc cancelar",
 
+		"cli.setup_hint":      "hop: aún no hay proyectos indexados, ejecuta `hop setup` para elegir tus carpetas de proyectos",
+		"setup.title":         "hop · instalación",
+		"setup.roots.title":   "¿Qué carpetas contienen tus proyectos?",
+		"setup.roots.empty":   "No se encontró ninguna carpeta de proyectos común en tu home. Puedes añadir raíces luego con hop config.",
+		"setup.roots.repos":   "%d repos",
+		"setup.editor.title":  "¿En qué editor abrir los proyectos?",
+		"setup.editor.empty":  "No se encontró ningún editor conocido en el PATH. Puedes definir uno luego con hop config.",
+		"setup.ai.title":      "¿Qué asistente de IA para las teclas c / r?",
+		"setup.ai.auto":       "auto (el primero instalado)",
+		"setup.ai.none":       "ninguno encontrado en el PATH; auto queda vacío hasta que instales uno.",
+		"setup.hint.multi":    "↑↓ mover · espacio marcar · enter siguiente · esc cancelar",
+		"setup.hint.single":   "↑↓ mover · enter siguiente · esc cancelar",
+		"setup.hint.next":     "enter continuar · esc cancelar",
+		"setup.hint.confirm":  "enter guardar y escanear · esc cancelar",
+		"setup.confirm.title": "Listo para escribir tu configuración",
+		"setup.row.roots":     "carpetas",
+		"setup.row.editor":    "editor",
+		"setup.row.ai":        "asistente",
+		"setup.cancelled":     "hop: instalación cancelada, no se escribió nada",
+		"setup.done":          "hop: listo, %d proyectos indexados",
+		"setup.shell_hint":    "Último paso, añade esto a %s y reinicia tu shell:",
+
 		"cli.no_project":           "hop: ningún proyecto para %q",
 		"cli.no_index":             "hop: ningún proyecto indexado, ejecuta `hop scan`",
 		"cli.unsafe_path":          "hop: ruta con caracteres de control, acción rechazada",
@@ -264,6 +332,7 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"cli.help": `hop · conmutador de proyectos
 
 Uso:
+  hop setup              Configuración guiada inicial (carpetas, editor, asistente)
   hop nav [palabra...]   Resuelve palabras e imprime el destino (usado por p)
   hop scan               (Re)construye el índice de proyectos
   hop add <path>         Registra un acceso (frecencia)
@@ -338,6 +407,28 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"config.opt.yes":        "sim",
 		"config.hint":           "↑↓ campo · ←→ valor · digite para editar · enter/ctrl+s salvar · esc cancelar",
 
+		"cli.setup_hint":      "hop: ainda não há projetos indexados, execute `hop setup` para escolher suas pastas de projetos",
+		"setup.title":         "hop · instalação",
+		"setup.roots.title":   "Quais pastas contêm seus projetos?",
+		"setup.roots.empty":   "Nenhuma pasta de projetos comum encontrada no seu home. Você pode adicionar raízes depois com hop config.",
+		"setup.roots.repos":   "%d repos",
+		"setup.editor.title":  "Abrir os projetos em qual editor?",
+		"setup.editor.empty":  "Nenhum editor conhecido encontrado no PATH. Você pode definir um depois com hop config.",
+		"setup.ai.title":      "Qual assistente de IA para as teclas c / r?",
+		"setup.ai.auto":       "auto (o primeiro instalado)",
+		"setup.ai.none":       "nenhum encontrado no PATH; auto fica vazio até você instalar um.",
+		"setup.hint.multi":    "↑↓ mover · espaço marcar · enter próximo · esc cancelar",
+		"setup.hint.single":   "↑↓ mover · enter próximo · esc cancelar",
+		"setup.hint.next":     "enter continuar · esc cancelar",
+		"setup.hint.confirm":  "enter salvar e escanear · esc cancelar",
+		"setup.confirm.title": "Pronto para escrever sua configuração",
+		"setup.row.roots":     "pastas",
+		"setup.row.editor":    "editor",
+		"setup.row.ai":        "assistente",
+		"setup.cancelled":     "hop: instalação cancelada, nada foi escrito",
+		"setup.done":          "hop: pronto, %d projetos indexados",
+		"setup.shell_hint":    "Último passo, adicione isto a %s e reinicie seu shell:",
+
 		"cli.no_project":           "hop: nenhum projeto para %q",
 		"cli.no_index":             "hop: nenhum projeto indexado, execute `hop scan`",
 		"cli.unsafe_path":          "hop: caminho com caracteres de controle, ação recusada",
@@ -357,6 +448,7 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"cli.help": `hop · alternador de projetos
 
 Uso:
+  hop setup              Configuração guiada inicial (pastas, editor, assistente)
   hop nav [palavra...]   Resolve palavras e imprime o destino (usado por p)
   hop scan               (Re)constrói o índice de projetos
   hop add <path>         Registra um acesso (frecência)

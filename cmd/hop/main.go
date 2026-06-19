@@ -30,6 +30,8 @@ func main() {
 		cmdAdd(args[1:])
 	case "init":
 		cmdInit(args[1:])
+	case "setup":
+		cmdSetup(args[1:])
 	case "prompt":
 		cmdPrompt(args[1:])
 	case "config":

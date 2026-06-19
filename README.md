@@ -25,6 +25,7 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 
 ## Features
 
+- **Guided first-run setup** (`hop setup`): detects your project folders, editor and AI assistant, then indexes everything.
 - **Instant jump by keyword**, ranked by frecency (`p api`).
 - **Ordered multi-keyword matching** to narrow by sub-path (`p acme web`).
 - **Interactive fuzzy Hub** with a per-project action menu: cd, editor, AI assistant, git, remote, Finder, tmux, and your own custom actions.
@@ -48,9 +49,17 @@ brew install philippe-desplats/tap/hop
 go install github.com/philippe-desplats/hop/cmd/hop@latest
 ```
 
-### 2. Wire the shell integration
+### 2. Run the guided setup
 
-Add the matching line to your shell startup file, then open a new shell.
+```sh
+hop setup
+```
+
+A short wizard detects your project folders (the ones holding git repos are preselected), your editor (Cursor, VS Code, Zed, ...) and your AI assistant, writes `~/.config/hop/config.toml`, builds the index, and prints the one shell line left to add. With no interactive terminal it falls back to sensible auto-detected defaults. You can re-run it anytime, or adjust everything later with `hop config`.
+
+### 3. Wire the shell integration
+
+`hop setup` prints the exact line for your shell. Add it to your startup file, then open a new shell.
 
 <details>
 <summary><b>zsh</b> (<code>~/.zshrc</code>)</summary>
@@ -76,7 +85,7 @@ hop init fish | source
 ```
 </details>
 
-`--cmd NAME` picks a different function name (default `p`), and `p <TAB>` completes project names. The first invocation indexes your project roots automatically.
+`--cmd NAME` picks a different function name (default `p`), and `p <TAB>` completes project names.
 
 ## Usage
 
@@ -90,6 +99,7 @@ hop pin web      # pin a project so it floats to the top of the Hub (marked with
 hop unpin web    # remove a pin
 hop scan         # reindex on demand
 hop clean        # forget projects whose folder no longer exists
+hop setup        # re-run the guided first-run setup
 hop doctor       # configuration diagnostics
 ```
 
@@ -112,7 +122,7 @@ See [`sample/README.md`](sample/README.md) for details and for regenerating the 
 
 ## Configuration
 
-`hop config` opens an interactive editor. The file `~/.config/hop/config.toml` (honoring `XDG_CONFIG_HOME`) is created automatically:
+`hop setup` bootstraps the config from auto-detection; `hop config` opens an interactive editor for fine-tuning afterwards. The file `~/.config/hop/config.toml` (honoring `XDG_CONFIG_HOME`) is created automatically:
 
 ```toml
 [ui]

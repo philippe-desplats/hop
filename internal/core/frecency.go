@@ -39,6 +39,13 @@ func LoadFrecency() *Frecency {
 	if f.Entries == nil {
 		f.Entries = map[string]*fEntry{}
 	}
+	// Drop any null entry (only reachable via external corruption) so sorters and
+	// scorers never dereference a nil pointer.
+	for k, v := range f.Entries {
+		if v == nil {
+			delete(f.Entries, k)
+		}
+	}
 	return f
 }
 
@@ -62,12 +69,6 @@ func AddFrecency(path string, now time.Time, blocking bool) (bool, error) {
 	})
 }
 
-// MostRecentExcept returns the most recently accessed entry other than exclude,
-// or "" if there is none. Used by `p -`.
-func (f *Frecency) MostRecentExcept(exclude string) string {
-	return f.NthMostRecentExcept(exclude, 1)
-}
-
 // NthMostRecentExcept returns the nth most recently accessed entry (n=1 is the
 // most recent) other than exclude, or "" if there are fewer than n. Powers the
 // jump-list `p -`, `p -2`, `p -3`.
@@ -76,8 +77,8 @@ func (f *Frecency) NthMostRecentExcept(exclude string, n int) string {
 		return ""
 	}
 	paths := make([]string, 0, len(f.Entries))
-	for path := range f.Entries {
-		if path != exclude {
+	for path, e := range f.Entries {
+		if e != nil && path != exclude {
 			paths = append(paths, path)
 		}
 	}

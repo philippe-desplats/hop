@@ -19,19 +19,24 @@ func Scan(cfg Config) []Project {
 		ignore[n] = true
 	}
 	var out []Project
+	visited := map[string]bool{}
 	for _, root := range cfg.Roots {
 		croot := CanonicalDir(root)
 		if fi, err := os.Stat(croot); err != nil || !fi.IsDir() {
 			continue
 		}
-		walkDir(croot, croot, 0, cfg.MaxDepth, ignore, &out)
+		if visited[croot] {
+			continue // a duplicate or nested root already walked
+		}
+		visited[croot] = true
+		walkDir(croot, croot, 0, cfg.MaxDepth, ignore, visited, &out)
 	}
 	return out
 }
 
 // walkDir scans dir (at the given depth, root = 0), appends discovered projects
 // to out, and returns how many git repositories were found in dir's subtree.
-func walkDir(root, dir string, depth, maxDepth int, ignore map[string]bool, out *[]Project) int {
+func walkDir(root, dir string, depth, maxDepth int, ignore, visited map[string]bool, out *[]Project) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0
@@ -42,6 +47,9 @@ func walkDir(root, dir string, depth, maxDepth int, ignore map[string]bool, out 
 		if ignore[name] || strings.HasPrefix(name, ".") {
 			continue
 		}
+		if HasControlChars(name) {
+			continue // a control char in a name would break the shell protocol
+		}
 		child := filepath.Join(dir, name)
 		fi, err := os.Stat(child) // follows symlinks
 		if err != nil || !fi.IsDir() {
@@ -49,6 +57,10 @@ func walkDir(root, dir string, depth, maxDepth int, ignore map[string]bool, out 
 		}
 		childDepth := depth + 1
 		cpath := CanonicalDir(child)
+		if visited[cpath] {
+			continue // already indexed via another root or a symlink: no re-walk
+		}
+		visited[cpath] = true
 
 		if isRepo(child) {
 			*out = append(*out, newProject(root, name, cpath))
@@ -58,7 +70,7 @@ func walkDir(root, dir string, depth, maxDepth int, ignore map[string]bool, out 
 		if childDepth >= maxDepth {
 			continue
 		}
-		sub := walkDir(root, child, childDepth, maxDepth, ignore, out)
+		sub := walkDir(root, child, childDepth, maxDepth, ignore, visited, out)
 		repos += sub
 		// A plain depth-2 folder with no repo beneath it is itself a project.
 		if sub == 0 && childDepth == 2 {

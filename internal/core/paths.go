@@ -15,6 +15,14 @@ func StateDir() string {
 	return filepath.Join(home, ".local", "state", "hop")
 }
 
+// HasControlChars reports whether s contains a newline, carriage return or NUL.
+// The shell integration parses a newline-delimited protocol and eval's its
+// output, so such a value must never be emitted or stored: a directory name
+// holding a newline plus a "__HOP_RUN__ <cmd>" line would otherwise be executed.
+func HasControlChars(s string) bool {
+	return strings.ContainsAny(s, "\n\r\x00")
+}
+
 // expandHome resolves a leading ~ to the user's home directory.
 func expandHome(p string) string {
 	if p == "~" || strings.HasPrefix(p, "~/") {
@@ -59,6 +67,9 @@ func UnderRoots(p string, roots []string) bool {
 	p = CanonicalDir(p)
 	for _, r := range roots {
 		r = CanonicalDir(r)
+		if r == string(os.PathSeparator) {
+			return true // a root of "/" contains every absolute path
+		}
 		if p == r || strings.HasPrefix(p, r+string(os.PathSeparator)) {
 			return true
 		}

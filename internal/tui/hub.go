@@ -549,6 +549,9 @@ func shiftLegend(p core.Project, opts action.Options, pinned bool) string {
 
 func (m model) viewActions() string {
 	p := m.current()
+	if p == nil {
+		return m.viewList()
+	}
 	var b strings.Builder
 	b.WriteString(promptStyle.Render("hop ❯ ") + selStyle.Render(p.Name) + dimStyle.Render("  "+core.DisplayPath(p.Path, m.roots)) + "\n\n")
 	for _, s := range action.All(m.opts) {

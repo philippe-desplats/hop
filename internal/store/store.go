@@ -1,6 +1,6 @@
 // Package store is the single owner of on-disk state for hop.
 // It provides version-aware, atomic, lock-guarded JSON persistence so that
-// index.json, frecency.json and bookmarks.json never reimplement the
+// index.json, frecency.json and pins.json never reimplement the
 // write/lock/recovery dance separately.
 package store
 
@@ -62,9 +62,15 @@ func Update(path string, target any, blocking bool, mutate func() error) (bool, 
 	defer unlock()
 
 	if data, rerr := os.ReadFile(path); rerr == nil { //nolint:gosec // internal state file path
-		// A decode error means corruption: ignore it and let target's initial
-		// value (plus mutate's own guards) perform the reset.
-		_ = json.Unmarshal(data, target)
+		if uerr := json.Unmarshal(data, target); uerr != nil && len(data) > 0 {
+			// Corrupt, not missing: back up the bytes before target's reset value
+			// overwrites them, so a hand-edit slip or disk fault is recoverable.
+			backup := fmt.Sprintf("%s.corrupt-%d", path, os.Getpid())
+			if werr := os.WriteFile(backup, data, 0o600); werr == nil {
+				fmt.Fprintf(os.Stderr, "hop: %s was corrupt, backed up to %s and reset\n",
+					filepath.Base(path), filepath.Base(backup))
+			}
+		}
 	}
 	if err := mutate(); err != nil {
 		return false, err
@@ -92,6 +98,10 @@ func writeAtomic(path string, v any) error {
 		return err
 	}
 	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil { // flush to disk before the rename
 		_ = tmp.Close()
 		return err
 	}

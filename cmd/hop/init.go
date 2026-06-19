@@ -61,7 +61,7 @@ func cmdInit(args []string) {
 
 // zshIntegration renders the sourced function under the chosen command name.
 func zshIntegration(cmd string) string {
-	const tmpl = `# hop shell integration, add  eval "$(hop init zsh)"  to ~/.zsh_init
+	const tmpl = `# hop shell integration, add  eval "$(hop init zsh)"  to ~/.zshrc
 #
 # Reclaim the name in case an alias shadows it (e.g. common-aliases' p='ps -f').
 # Cheatsheet:
@@ -95,6 +95,13 @@ function _hop_chpwd {
   command hop add "$PWD" &>/dev/null &!
 }
 autoload -Uz add-zsh-hook && add-zsh-hook chpwd _hop_chpwd
+# Completion: project names from the index (needs compinit, which most zsh setups load).
+_hop_complete() {
+  local -a names
+  names=(${(f)"$(command hop complete "${words[CURRENT]}")"})
+  compadd -a names
+}
+(( $+functions[compdef] )) && compdef _hop_complete %[1]s
 `
 	return fmt.Sprintf(tmpl, cmd)
 }
@@ -127,7 +134,8 @@ _hop_last_pwd=""
 _hop_record() {
   [ "$PWD" = "$_hop_last_pwd" ] && return
   _hop_last_pwd="$PWD"
-  command hop add "$PWD" >/dev/null 2>&1 &
+  # Subshell so bash job control never prints "[1]+ Done ..." at the next prompt.
+  ( command hop add "$PWD" >/dev/null 2>&1 & )
 }
 case "$PROMPT_COMMAND" in
   *_hop_record*) ;;
@@ -165,7 +173,7 @@ function %[1]s
             set cmd (string replace '__HOP_RUN__ ' '' -- $line)
         end
     end
-    test -n "$dir"; and cd $dir
+    test -n "$dir"; and cd -- $dir
     test -n "$cmd"; and eval $cmd
 end
 # Frecency hook: fish fires on every PWD change.

@@ -27,22 +27,17 @@ func TestScoreRecencyBuckets(t *testing.T) {
 	}
 }
 
-func TestMostRecentExcept(t *testing.T) {
+func TestNthMostRecentExceptSkipsNilEntries(t *testing.T) {
 	now := time.Now()
+	// A null entry is only reachable via external corruption; it must be skipped,
+	// not dereferenced (the sort comparator would otherwise panic).
 	f := &Frecency{Version: frecencyVersion, Entries: map[string]*fEntry{
 		"/current":  {Rank: 1, LastAccess: now.Unix()},
 		"/previous": {Rank: 1, LastAccess: now.Add(-1 * time.Minute).Unix()},
-		"/older":    {Rank: 1, LastAccess: now.Add(-1 * time.Hour).Unix()},
+		"/null":     nil,
 	}}
-	if got := f.MostRecentExcept("/current"); got != "/previous" {
-		t.Errorf("MostRecentExcept(/current) = %q, want /previous", got)
-	}
-	if got := f.MostRecentExcept(""); got != "/current" {
-		t.Errorf("MostRecentExcept(none) = %q, want /current", got)
-	}
-	empty := &Frecency{Version: frecencyVersion, Entries: map[string]*fEntry{}}
-	if got := empty.MostRecentExcept("/x"); got != "" {
-		t.Errorf("empty MostRecentExcept = %q, want empty", got)
+	if got := f.NthMostRecentExcept("/current", 1); got != "/previous" {
+		t.Errorf("NthMostRecentExcept(/current, 1) = %q, want /previous", got)
 	}
 }
 

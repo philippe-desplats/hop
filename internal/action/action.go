@@ -138,6 +138,24 @@ func customSpec(c core.CustomAction) (Spec, bool) {
 	return spec, true
 }
 
+// InvalidCustomActions returns one human-readable reason per custom action that
+// customSpec will skip (empty key, empty command, or a key reserved by a
+// built-in), so `hop doctor` can surface misconfigured entries.
+func InvalidCustomActions(custom []core.CustomAction) []string {
+	var bad []string
+	for _, c := range custom {
+		switch {
+		case c.Key == "":
+			bad = append(bad, "(no key): every custom action needs a key")
+		case c.Command == "":
+			bad = append(bad, c.Key+": missing command")
+		case reservedKeys[c.Key]:
+			bad = append(bad, c.Key+": key reserved by a built-in action")
+		}
+	}
+	return bad
+}
+
 // substituteArgv splits command into argv tokens and replaces {path}/{name} in
 // each, so a detached launch never goes through a shell.
 func substituteArgv(command string, p core.Project) []string {
@@ -175,9 +193,10 @@ func ByKey(key string, p core.Project, o Options) (Spec, bool) {
 // launch starts a detached program with an explicit argv (no shell), so it
 // neither blocks the Hub nor risks shell injection.
 func launch(name string, args ...string) {
-	// name is a constant ("open") or the editor command from vetted config; args are project paths.
-	// Phase 2 custom actions must validate their command before reaching here.
-	cmd := exec.Command(name, args...) //nolint:gosec // command from vetted config/constants, not untrusted input
+	// name is a built-in constant ("open"), the editor from config, or a custom
+	// action command. All originate from the user's own config.toml, treated as
+	// trusted; args are project paths and no shell is involved.
+	cmd := exec.Command(name, args...) //nolint:gosec // argv from the user's own local config, not remote/untrusted input
 	if err := cmd.Start(); err == nil && cmd.Process != nil {
 		_ = cmd.Process.Release()
 	}

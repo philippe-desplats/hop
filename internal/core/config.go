@@ -1,31 +1,20 @@
 package core
 
-// Config controls how the project tree is scanned. In v0 it is built from
-// sensible defaults; a TOML file lands in v1.0.
+// Config controls how the project tree is scanned. It is derived from the loaded
+// TOML Settings via ScanConfig; the defaults live in DefaultSettings.
 type Config struct {
 	Roots    []string
 	MaxDepth int
 	Ignore   []string
 }
 
-// DefaultConfig scans ~/Projects deeply enough to reach repos nested several
-// levels down (some layouts go ~6 levels deep).
-func DefaultConfig() Config {
-	return Config{
-		Roots:    []string{expandHome("~/Projects")},
-		MaxDepth: 7,
-		Ignore:   []string{"node_modules", "vendor", "_archives"},
-	}
-}
-
-// ScanConfig builds the scan Config from user settings (roots get ~ expanded).
+// ScanConfig builds the scan Config from user settings, expanding ~ in roots.
+// Callers pass LoadSettings(), which already coerces empty roots and a
+// non-positive depth back to their defaults, so no fallback is needed here.
 func ScanConfig(s Settings) Config {
 	c := Config{MaxDepth: s.Scan.MaxDepth, Ignore: s.Scan.Ignore}
 	for _, r := range s.Scan.Roots {
 		c.Roots = append(c.Roots, expandHome(r))
-	}
-	if len(c.Roots) == 0 || c.MaxDepth <= 0 {
-		return DefaultConfig()
 	}
 	return c
 }

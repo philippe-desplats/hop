@@ -1,6 +1,7 @@
 package core
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/philippe-desplats/hop/internal/store"
@@ -53,6 +54,26 @@ func AddPin(path string) (added bool, err error) {
 		return nil
 	})
 	return added, err
+}
+
+// PrunePins drops pinned paths whose directory no longer exists, returning the
+// number removed. Mirrors PruneFrecency so `hop clean` keeps both stores tidy.
+func PrunePins() (int, error) {
+	p := emptyPins()
+	removed := 0
+	_, err := store.Update(PinsPath(), p, true, func() error {
+		out := p.Paths[:0]
+		for _, x := range p.Paths {
+			if _, statErr := os.Stat(x); statErr != nil {
+				removed++
+				continue
+			}
+			out = append(out, x)
+		}
+		p.Paths = out
+		return nil
+	})
+	return removed, err
 }
 
 // RemovePin unpins path; removed is false when it was not pinned.

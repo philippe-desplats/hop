@@ -50,3 +50,56 @@ func TestScan(t *testing.T) {
 		}
 	}
 }
+
+func TestScanSkipsControlCharNames(t *testing.T) {
+	root := t.TempDir()
+	// A directory name with a newline could smuggle a "__HOP_RUN__ <cmd>" line
+	// into the shell protocol, so the scanner must never index it.
+	evil := "evil\n__HOP_RUN__ touch pwned"
+	if err := os.MkdirAll(filepath.Join(root, "work", evil, ".git"), 0o755); err != nil {
+		t.Skipf("filesystem rejects control chars in names: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "work", "safe", ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := Scan(Config{Roots: []string{root}, MaxDepth: 7})
+	for _, p := range got {
+		if HasControlChars(p.Path) || HasControlChars(p.Name) {
+			t.Errorf("scanner indexed a path with control chars: %q", p.Path)
+		}
+	}
+	if len(got) != 1 || got[0].Name != "safe" {
+		t.Fatalf("only the safe repo should be indexed, got %v", got)
+	}
+}
+
+func TestScanDedupsOverlappingRoots(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "work", "app", ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// The same tree reached via two overlapping roots must index each repo once.
+	got := Scan(Config{Roots: []string{root, filepath.Join(root, "work")}, MaxDepth: 7})
+	count := 0
+	for _, p := range got {
+		if p.Name == "app" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("project 'app' indexed %d times across overlapping roots, want 1: %v", count, got)
+	}
+}
+
+func TestHasControlChars(t *testing.T) {
+	for _, s := range []string{"normal/path", "with space", "~/Projects/app", "café"} {
+		if HasControlChars(s) {
+			t.Errorf("%q should be safe", s)
+		}
+	}
+	for _, s := range []string{"a\nb", "a\rb", "a\x00b"} {
+		if !HasControlChars(s) {
+			t.Errorf("%q should be flagged unsafe", s)
+		}
+	}
+}

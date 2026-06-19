@@ -9,6 +9,22 @@ import (
 	"github.com/philippe-desplats/hop/internal/core"
 )
 
+func TestInvalidCustomActions(t *testing.T) {
+	custom := []core.CustomAction{
+		{Key: "y", Label: "ok", Command: "cursor {path}"}, // valid
+		{Key: "", Command: "x"},                           // no key
+		{Key: "n", Command: ""},                           // no command
+		{Key: "z", Command: "x"},                          // reserved built-in key
+	}
+	bad := InvalidCustomActions(custom)
+	if len(bad) != 3 {
+		t.Fatalf("expected 3 invalid entries reported, got %d: %v", len(bad), bad)
+	}
+	if InvalidCustomActions(nil) != nil {
+		t.Error("no custom actions should report nothing")
+	}
+}
+
 func TestActionOutcomes(t *testing.T) {
 	p := core.Project{Name: "web-app", Path: "/p/x"}
 	opts := Options{AI: Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}

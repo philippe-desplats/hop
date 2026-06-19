@@ -61,6 +61,7 @@ var catalog = map[Lang]map[string]string{
 
 		"cli.no_project":           "hop: no project for %q",
 		"cli.no_index":             "hop: no project indexed, run `hop scan`",
+		"cli.unsafe_path":          "hop: refusing a path with control characters",
 		"cli.frequent_header":      "hop · %d projects (no interactive terminal, list fallback):",
 		"cli.tip":                  "tip: p <keyword> [<keyword>...] to jump, p - to go back",
 		"cli.no_prev":              "hop: no previous project",
@@ -88,7 +89,7 @@ Usage:
   hop doctor             Configuration diagnostics
   hop version            Print the version
 
-Daily, after  eval "$(hop init zsh)"  in ~/.zsh_init:
+Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
   p <keyword>            jump straight to the best project
   p <keyword> <keyword>  narrow by sub-path (e.g. p acme web)
   p -                    go back to the previous project
@@ -153,6 +154,7 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zsh_init:
 
 		"cli.no_project":           "hop: aucun projet pour %q",
 		"cli.no_index":             "hop: aucun projet indexé, lance `hop scan`",
+		"cli.unsafe_path":          "hop : chemin contenant des caractères de contrôle, action refusée",
 		"cli.frequent_header":      "hop · %d projets (pas de terminal interactif, repli liste) :",
 		"cli.tip":                  "astuce : p <mot-clé> [<mot-clé>...] pour sauter, p - pour revenir",
 		"cli.no_prev":              "hop: pas de projet précédent",
@@ -180,7 +182,7 @@ Usage:
   hop doctor             Diagnostic de configuration
   hop version            Affiche la version
 
-Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zsh_init :
+Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
   p <mot-clé>            saut direct vers le meilleur projet
   p <mot-clé> <mot-clé>  affine par sous-chemin (ex. p acme web)
   p -                    revient au projet précédent
@@ -245,6 +247,7 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zsh_init :
 
 		"cli.no_project":           "hop: ningún proyecto para %q",
 		"cli.no_index":             "hop: ningún proyecto indexado, ejecuta `hop scan`",
+		"cli.unsafe_path":          "hop: ruta con caracteres de control, acción rechazada",
 		"cli.frequent_header":      "hop · %d proyectos (sin terminal interactiva, lista de respaldo):",
 		"cli.tip":                  "consejo: p <palabra> [<palabra>...] para saltar, p - para volver",
 		"cli.no_prev":              "hop: sin proyecto anterior",
@@ -272,7 +275,7 @@ Uso:
   hop doctor             Diagnóstico de configuración
   hop version            Muestra la versión
 
-A diario, tras  eval "$(hop init zsh)"  en ~/.zsh_init:
+A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
   p <palabra>            salta directo al mejor proyecto
   p <palabra> <palabra>  afina por sub-ruta (ej. p acme web)
   p -                    vuelve al proyecto anterior
@@ -337,6 +340,7 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zsh_init:
 
 		"cli.no_project":           "hop: nenhum projeto para %q",
 		"cli.no_index":             "hop: nenhum projeto indexado, execute `hop scan`",
+		"cli.unsafe_path":          "hop: caminho com caracteres de controle, ação recusada",
 		"cli.frequent_header":      "hop · %d projetos (sem terminal interativo, lista alternativa):",
 		"cli.tip":                  "dica: p <palavra> [<palavra>...] para saltar, p - para voltar",
 		"cli.no_prev":              "hop: sem projeto anterior",
@@ -364,7 +368,7 @@ Uso:
   hop doctor             Diagnóstico de configuração
   hop version            Mostra a versão
 
-No dia a dia, após  eval "$(hop init zsh)"  em ~/.zsh_init:
+No dia a dia, após  eval "$(hop init zsh)"  em ~/.zshrc:
   p <palavra>            salta direto para o melhor projeto
   p <palavra> <palavra>  refina por sub-caminho (ex. p acme web)
   p -                    volta ao projeto anterior

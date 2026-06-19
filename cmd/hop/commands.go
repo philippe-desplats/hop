@@ -27,8 +27,10 @@ func cmdScan(_ []string) {
 		}
 	}
 	fmt.Fprintln(os.Stderr, i18n.Tf("cli.scan_summary", len(idx.Projects), len(cats)))
-	if removed, _ := core.PruneFrecency(); removed > 0 {
-		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed))
+	removed, _ := core.PruneFrecency()
+	pins, _ := core.PrunePins()
+	if removed+pins > 0 {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins))
 	}
 }
 
@@ -51,7 +53,11 @@ func cmdClean(_ []string) {
 	if err != nil {
 		fatal(err)
 	}
-	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed))
+	pins, err := core.PrunePins()
+	if err != nil {
+		fatal(err)
+	}
+	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins))
 }
 
 // cmdPin pins the project matching the keywords so it floats to the top of the
@@ -165,8 +171,14 @@ func actionOutcome(key string, p core.Project, opts action.Options) action.Outco
 }
 
 // emitOutcome writes the protocol the `p` shell function parses: a cd target
-// and/or a command to run after cd.
+// and/or a command to run after cd. The shell eval's this output, so a Cd or Run
+// holding a newline could smuggle an extra __HOP_RUN__ line; such values are
+// refused (exit non-zero, the shell function then aborts without cd/eval).
 func emitOutcome(o action.Outcome) {
+	if core.HasControlChars(o.Cd) || core.HasControlChars(o.Run) {
+		fmt.Fprintln(os.Stderr, i18n.T("cli.unsafe_path"))
+		os.Exit(1)
+	}
 	if o.Cd != "" {
 		fmt.Printf("__HOP_CD__ %s\n", o.Cd)
 	}
@@ -197,6 +209,9 @@ func cmdAdd(args []string) {
 	}
 	cfg := core.ScanConfig(core.LoadSettings())
 	p := core.CanonicalDir(args[0])
+	if core.HasControlChars(p) {
+		return // never index a path that could break the shell protocol
+	}
 	if !core.UnderRoots(p, cfg.Roots) {
 		return // only learn paths inside configured roots
 	}
@@ -310,6 +325,9 @@ func cmdDoctor(_ []string) {
 		active = ai.Name
 	}
 	fmt.Printf("  %-8s %-42s %s\n", "ai", list, "active: "+active)
+	for _, bad := range action.InvalidCustomActions(settings.Actions.Custom) {
+		fmt.Printf("  %-8s %-42s %s\n", "action", bad, "✗")
+	}
 	if idx, err := core.LoadIndex(); err == nil {
 		fmt.Printf("  %-8s %-42s %d\n", "index", core.IndexPath(), len(idx.Projects))
 	} else {

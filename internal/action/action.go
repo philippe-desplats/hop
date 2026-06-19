@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/philippe-desplats/hop/internal/core"
@@ -63,6 +64,12 @@ func All(o Options) []Spec {
 	if editor == "" {
 		editor = "zed"
 	}
+	openBin := opener()
+	openExists := hasOpener()
+	openLabel, openShort := i18n.T("action.finder"), "Finder"
+	if runtime.GOOS != "darwin" {
+		openLabel, openShort = i18n.T("action.filemanager"), i18n.T("action.short.filemanager")
+	}
 	specs := []Spec{
 		{Key: "enter", Label: i18n.T("action.cd"), Short: "cd", do: func(p core.Project) Outcome {
 			return Outcome{Cd: p.Path}
@@ -87,14 +94,14 @@ func All(o Options) []Spec {
 		Spec{Key: "g", Label: i18n.T("action.git"), Short: "git", avail: hasGit, do: func(p core.Project) Outcome {
 			return Outcome{Cd: p.Path, Run: "git status"}
 		}},
-		Spec{Key: "o", Label: i18n.T("action.remote"), Short: i18n.T("action.short.remote"), avail: hasGit, do: func(p core.Project) Outcome {
+		Spec{Key: "o", Label: i18n.T("action.remote"), Short: i18n.T("action.short.remote"), avail: func(p core.Project) bool { return openExists && hasGit(p) }, do: func(p core.Project) Outcome {
 			if url := remoteURL(p.Path); url != "" {
-				launch("open", url)
+				launch(openBin, url)
 			}
 			return Outcome{Cd: p.Path}
 		}},
-		Spec{Key: "f", Label: i18n.T("action.finder"), Short: "Finder", do: func(p core.Project) Outcome {
-			launch("open", p.Path)
+		Spec{Key: "f", Label: openLabel, Short: openShort, avail: func(core.Project) bool { return openExists }, do: func(p core.Project) Outcome {
+			launch(openBin, p.Path)
 			return Outcome{Cd: p.Path}
 		}},
 	)
@@ -188,6 +195,23 @@ func ByKey(key string, p core.Project, o Options) (Spec, bool) {
 		}
 	}
 	return Spec{}, false
+}
+
+// opener is the platform command that opens a file or URL with the user's
+// default handler: "open" on macOS, "xdg-open" on Linux and other Unixes.
+func opener() string {
+	if runtime.GOOS == "darwin" {
+		return "open"
+	}
+	return "xdg-open"
+}
+
+// hasOpener reports whether the platform opener is on PATH. The remote and
+// file-manager actions are hidden when it is absent (e.g. a headless Linux box
+// without xdg-utils), so the menu never shows an action that cannot do anything.
+func hasOpener() bool {
+	_, err := lookPath(opener())
+	return err == nil
 }
 
 // launch starts a detached program with an explicit argv (no shell), so it

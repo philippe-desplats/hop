@@ -28,7 +28,7 @@ The catch with most switchers is they stop at the jump. `hop` treats the jump as
 - **Guided first-run setup** (`hop setup`): detects your project folders, editor and AI assistant, then indexes everything.
 - **Instant jump by keyword**, ranked by frecency (`p api`).
 - **Ordered multi-keyword matching** to narrow by sub-path (`p acme web`).
-- **Interactive fuzzy Hub** with a per-project action menu: cd, editor, AI assistant, git, remote, Finder, tmux, and your own custom actions.
+- **Interactive fuzzy Hub** with a per-project action menu: cd, editor, AI assistant, git, remote, file manager, tmux, and your own custom actions.
 - **AI-agnostic**: the assistant keys auto-detect Claude, Codex, Aider or Gemini, and you can pin a specific one in config.
 - **Pin favorites** so they float to the top of the Hub, from the CLI or with a single key in the Hub.
 - **Jump back** to where you were with `p -` (and `p -2`, `p -3`).
@@ -53,6 +53,8 @@ curl -fsSL https://raw.githubusercontent.com/philippe-desplats/hop/master/instal
 ```
 
 The script verifies the SHA-256 checksum, installs to `~/.local/bin` (override with `HOP_INSTALL_DIR`), and prints what to do next.
+
+hop runs on macOS and Linux (amd64 and arm64). Homebrew casks are macOS only, so on Linux install with `go install` or the script above.
 
 ### 2. Run the guided setup
 
@@ -108,7 +110,7 @@ hop setup        # re-run the guided first-run setup
 hop doctor       # configuration diagnostics
 ```
 
-In the Hub, type to filter, `Tab` opens the action menu, and from there a single key fires an action: `z` editor, `c` AI assistant, `r` resume (when the assistant supports it), `g` git, `o` remote, `f` Finder, `t` tmux (when enabled), `p` pin, plus any custom action you defined.
+In the Hub, type to filter, `Tab` opens the action menu, and from there a single key fires an action: `z` editor, `c` AI assistant, `r` resume (when the assistant supports it), `g` git, `o` remote, `f` file manager, `t` tmux (when enabled), `p` pin, plus any custom action you defined. The `o` and `f` actions use `open` on macOS and `xdg-open` on Linux, and hide themselves when neither is available.
 
 Keywords are ordered and each must appear in the path (the `zoxide` model). A freshly created project is found automatically: on a miss, `hop` reindexes once and retries before giving up.
 

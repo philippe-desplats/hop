@@ -48,7 +48,9 @@ func TestShiftLegend(t *testing.T) {
 	p := core.Project{Name: "x", Path: "/tmp/hop-no-such-repo-xyz"} // not a git repo
 	opts := action.Options{Editor: "zed", ShowTmux: true, AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
 	leg := shiftLegend(p, opts, false)
-	for _, want := range []string{"zed", "claude", "resume", "Finder", "tmux", "pin"} {
+	// Platform-independent actions only; the opener-gated file-manager/remote
+	// actions are covered in the action package where PATH can be stubbed.
+	for _, want := range []string{"zed", "claude", "resume", "tmux", "pin"} {
 		if !strings.Contains(leg, want) {
 			t.Errorf("legend missing %q: %s", want, leg)
 		}

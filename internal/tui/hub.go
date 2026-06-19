@@ -246,6 +246,10 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.access == "shift" && msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && unicode.IsUpper(msg.Runes[0]) {
 		if p := m.current(); p != nil {
 			key := strings.ToLower(string(msg.Runes))
+			if key == "p" {
+				m.togglePin(*p)
+				return m, nil
+			}
 			if _, ok := action.ByKey(key, *p, m.opts); ok {
 				m.chosen, m.actionKey = p, key
 				return m, tea.Quit
@@ -532,6 +536,10 @@ func shiftLegend(p core.Project, opts action.Options) string {
 		first = false
 		b.WriteString(keyStyle.Render(strings.ToUpper(s.Key)) + dimStyle.Render(" "+s.Short))
 	}
+	if !first {
+		b.WriteString(dimStyle.Render(" · "))
+	}
+	b.WriteString(keyStyle.Render("P") + dimStyle.Render(" ") + warnStyle.Render("★"))
 	return b.String()
 }
 

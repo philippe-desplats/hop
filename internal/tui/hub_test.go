@@ -47,7 +47,7 @@ func TestStyledPathPreservesText(t *testing.T) {
 func TestShiftLegend(t *testing.T) {
 	p := core.Project{Name: "x", Path: "/tmp/hop-no-such-repo-xyz"} // not a git repo
 	leg := shiftLegend(p, action.Options{Editor: "zed", ShowTmux: true, AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true})
-	for _, want := range []string{"zed", "claude", "resume", "Finder", "tmux"} {
+	for _, want := range []string{"zed", "claude", "resume", "Finder", "tmux", "★"} {
 		if !strings.Contains(leg, want) {
 			t.Errorf("legend missing %q: %s", want, leg)
 		}
@@ -175,6 +175,20 @@ func TestHubActionEscReturnsToList(t *testing.T) {
 	mm := m.(model)
 	if mm.mode != modeList || mm.chosen != nil {
 		t.Fatalf("esc in action menu should return to list without selecting (mode=%d chosen=%v)", mm.mode, mm.chosen)
+	}
+}
+
+func TestHubShiftPin(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "shift", aiOpts(), core.DefaultWeights())
+	p := m.(model).current()
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}}) // Shift+P toggles pin
+	mm := m.(model)
+	if mm.chosen != nil {
+		t.Error("Shift+P should not exit the Hub")
+	}
+	if !mm.pinned[p.Path] {
+		t.Errorf("Shift+P should pin %s", p.Path)
 	}
 }
 

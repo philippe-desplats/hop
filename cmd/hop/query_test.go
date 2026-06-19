@@ -64,7 +64,8 @@ func TestCmdQuerySubprocess(t *testing.T) {
 			"HOME=" + home,
 			"XDG_STATE_HOME=" + filepath.Join(t.TempDir(), "state"),
 			"XDG_CONFIG_HOME=" + t.TempDir(),
-			"PATH=" + t.TempDir(), // empty: query never shells out
+			"PATH=" + t.TempDir(),       // empty: query never shells out
+			"GOCOVERDIR=" + t.TempDir(), // silence the cover runtime warning on a coverage build
 		}
 		out, err := cmd.CombinedOutput()
 		code := 0

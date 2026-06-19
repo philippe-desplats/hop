@@ -47,6 +47,7 @@ func TestCmdImportSubprocess(t *testing.T) {
 			"XDG_STATE_HOME=" + stateDir,
 			"XDG_CONFIG_HOME=" + configDir,
 			"PATH=" + pathVal,
+			"GOCOVERDIR=" + t.TempDir(), // silence the cover runtime warning on a coverage build
 		}
 		out, err := cmd.CombinedOutput()
 		code := 0

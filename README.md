@@ -10,6 +10,7 @@ Jump to any project by frecency, then drop into your editor, your AI assistant, 
 [![Release](https://img.shields.io/github/v/release/philippe-desplats/hop?sort=semver)](https://github.com/philippe-desplats/hop/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/philippe-desplats/hop)](https://goreportcard.com/report/github.com/philippe-desplats/hop)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13310/badge)](https://www.bestpractices.dev/projects/13310)
 
 <img src="docs/demo.gif" alt="hop in action" width="720" />
 

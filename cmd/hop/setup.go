@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/philippe-desplats/hop/internal/action"
 	"github.com/philippe-desplats/hop/internal/core"
@@ -13,17 +14,26 @@ import (
 
 // cmdSetup runs the first-run guided configuration: detect candidate folders,
 // editors and assistants, let the user confirm in a wizard (or fall back to a
-// non-interactive preset with no tty), then save the config, build the index and
-// print the one shell line left to paste.
+// non-interactive preset with no tty), save the config, build the index, and
+// optionally wire the shell integration into the user's rc file.
 func cmdSetup(_ []string) {
 	settings := core.LoadSettings()
 	roots := core.DiscoverRoots()
 	editors := action.DetectEditors()
-	assistants := action.DetectAssistants()
+	shell, rc, line := detectShell()
+	wired := shellAlreadyWired(rc)
 
-	edited, confirmed, err := tui.RunSetup(settings, roots, editors, assistants)
-	if err != nil { // no tty: apply the same defaults the wizard preselects
-		edited, confirmed = presetSettings(settings, roots, editors, assistants), true
+	edited, confirmed, writeShell, err := tui.RunSetup(tui.SetupInput{
+		Settings:     settings,
+		Roots:        roots,
+		Editors:      editors,
+		Assistants:   action.DetectAssistants(),
+		ShellName:    shell,
+		RcLabel:      rc,
+		AlreadyWired: wired,
+	})
+	if err != nil { // no tty: apply preset defaults, never touch the rc unprompted
+		edited, confirmed, writeShell = presetSettings(settings, roots, editors, nil), true, false
 	}
 	if !confirmed {
 		fmt.Fprintln(os.Stderr, i18n.T("setup.cancelled"))
@@ -33,7 +43,16 @@ func cmdSetup(_ []string) {
 		fatal(err)
 	}
 	idx := core.BuildAndSaveIndex(core.ScanConfig(edited))
-	printSetupSummary(idx)
+
+	wroteShell := false
+	if writeShell && !wired {
+		if werr := wireShell(rc, line); werr != nil {
+			fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_failed", rc))
+		} else {
+			wroteShell = true
+		}
+	}
+	printSetupSummary(idx, rc, line, wired, wroteShell)
 }
 
 // presetSettings folds auto-detected defaults onto settings without prompting:
@@ -72,10 +91,56 @@ func detectShell() (shell, rc, line string) {
 	}
 }
 
-func printSetupSummary(idx *core.Index) {
-	_, rc, line := detectShell()
+// expandTilde resolves a leading ~ to the user's home directory.
+func expandTilde(p string) string {
+	if p == "~" || strings.HasPrefix(p, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			if p == "~" {
+				return home
+			}
+			return filepath.Join(home, p[2:])
+		}
+	}
+	return p
+}
+
+// shellAlreadyWired reports whether the rc file already sources hop, so setup
+// never offers to add a duplicate line.
+func shellAlreadyWired(rc string) bool {
+	data, err := os.ReadFile(expandTilde(rc))
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), "hop init")
+}
+
+// wireShell appends the integration line to the rc file (creating it and its
+// parent directory if needed), so the daily `p` function works on the next shell.
+func wireShell(rc, line string) error {
+	full := expandTilde(rc)
+	if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
+		return err
+	}
+	//nolint:gosec // rc is our own constant path from detectShell, not untrusted input; 0644 is the expected mode for a shell rc
+	f, err := os.OpenFile(full, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString("\n# hop shell integration\n" + line + "\n")
+	return err
+}
+
+func printSetupSummary(idx *core.Index, rc, line string, wired, wroteShell bool) {
 	fmt.Fprintln(os.Stderr, i18n.Tf("setup.done", len(idx.Projects)))
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_hint", rc))
-	fmt.Fprintln(os.Stderr, "    "+line)
+	switch {
+	case wroteShell:
+		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_done", rc))
+	case wired:
+		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_present", rc))
+	default:
+		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_hint", rc))
+		fmt.Fprintln(os.Stderr, "    "+line)
+	}
 }

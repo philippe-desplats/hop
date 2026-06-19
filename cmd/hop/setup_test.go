@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/philippe-desplats/hop/internal/action"
@@ -36,6 +39,42 @@ func TestPresetSettingsNoRootsKeepsDefault(t *testing.T) {
 	got := presetSettings(base, nil, nil, nil)
 	if len(got.Scan.Roots) != len(base.Scan.Roots) || got.Scan.Roots[0] != base.Scan.Roots[0] {
 		t.Errorf("roots = %v, want unchanged default %v", got.Scan.Roots, base.Scan.Roots)
+	}
+}
+
+func TestWireShellAppendsAndDetects(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	rc := "~/.zshrc"
+
+	if shellAlreadyWired(rc) {
+		t.Fatal("must not report wired before the rc exists")
+	}
+	if err := wireShell(rc, `eval "$(hop init zsh)"`); err != nil {
+		t.Fatal(err)
+	}
+	if !shellAlreadyWired(rc) {
+		t.Error("must detect the integration after writing")
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".zshrc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `eval "$(hop init zsh)"`) {
+		t.Errorf("rc is missing the eval line: %q", data)
+	}
+}
+
+func TestWireShellCreatesFishConfigDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	rc := "~/.config/fish/config.fish" // parent dir does not exist yet
+
+	if err := wireShell(rc, "hop init fish | source"); err != nil {
+		t.Fatal(err)
+	}
+	if !shellAlreadyWired(rc) {
+		t.Error("fish config should be wired after writing")
 	}
 }
 

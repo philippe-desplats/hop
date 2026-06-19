@@ -17,9 +17,22 @@ const (
 	stepRoots = iota
 	stepEditor
 	stepAI
+	stepShell
 	stepConfirm
 	stepCount
 )
+
+// SetupInput is everything the wizard needs to render and decide. The shell
+// fields let it offer to wire the integration into the user's rc file.
+type SetupInput struct {
+	Settings     core.Settings
+	Roots        []core.RootCandidate
+	Editors      []action.Editor
+	Assistants   []string
+	ShellName    string // detected shell, e.g. "zsh"
+	RcLabel      string // its rc file, e.g. "~/.zshrc"
+	AlreadyWired bool   // the integration is already present in the rc
+}
 
 type setupModel struct {
 	base core.Settings
@@ -33,6 +46,11 @@ type setupModel struct {
 	aiOptions []string // "auto" + detected assistant names
 	aiIdx     int
 
+	shellName    string
+	rcLabel      string
+	alreadyWired bool
+	writeShell   bool // user chose to wire the rc (only when not alreadyWired)
+
 	step      int
 	cursor    int
 	confirmed bool
@@ -40,26 +58,31 @@ type setupModel struct {
 
 // newSetupModel builds the wizard with sensible preselections: every folder that
 // holds at least one repo is checked (or the first folder when none do), the
-// first detected editor is chosen, and the assistant defaults to "auto".
-func newSetupModel(s core.Settings, roots []core.RootCandidate, editors []action.Editor, assistants []string) setupModel {
-	sel := make([]bool, len(roots))
+// first detected editor is chosen, the assistant defaults to "auto", and wiring
+// the shell integration is offered (default yes) unless it is already present.
+func newSetupModel(in SetupInput) setupModel {
+	sel := make([]bool, len(in.Roots))
 	any := false
-	for i, r := range roots {
+	for i, r := range in.Roots {
 		if r.Repos > 0 {
 			sel[i] = true
 			any = true
 		}
 	}
-	if !any && len(roots) > 0 {
+	if !any && len(in.Roots) > 0 {
 		sel[0] = true
 	}
-	aiOptions := append([]string{"auto"}, assistants...)
+	aiOptions := append([]string{"auto"}, in.Assistants...)
 	return setupModel{
-		base:      s,
-		roots:     roots,
-		rootSel:   sel,
-		editors:   editors,
-		aiOptions: aiOptions,
+		base:         in.Settings,
+		roots:        in.Roots,
+		rootSel:      sel,
+		editors:      in.Editors,
+		aiOptions:    aiOptions,
+		shellName:    in.ShellName,
+		rcLabel:      in.RcLabel,
+		alreadyWired: in.AlreadyWired,
+		writeShell:   !in.AlreadyWired,
 	}
 }
 
@@ -94,6 +117,11 @@ func (m setupModel) itemCount() int {
 		return len(m.editors)
 	case stepAI:
 		return len(m.aiOptions)
+	case stepShell:
+		if m.alreadyWired {
+			return 0 // informational only, nothing to choose
+		}
+		return 2 // yes / no
 	default:
 		return 0
 	}
@@ -141,6 +169,10 @@ func (m setupModel) advance() (tea.Model, tea.Cmd) {
 		}
 	case stepAI:
 		m.aiIdx = m.cursor
+	case stepShell:
+		if !m.alreadyWired {
+			m.writeShell = m.cursor == 0 // option 0 = yes
+		}
 	case stepConfirm:
 		m.confirmed = true
 		return m, tea.Quit
@@ -152,6 +184,10 @@ func (m setupModel) advance() (tea.Model, tea.Cmd) {
 		m.cursor = m.editorIdx
 	case stepAI:
 		m.cursor = m.aiIdx
+	case stepShell:
+		if !m.writeShell {
+			m.cursor = 1
+		}
 	}
 	return m, nil
 }
@@ -166,10 +202,26 @@ func (m setupModel) View() string {
 		m.viewEditor(&b)
 	case stepAI:
 		m.viewAI(&b)
+	case stepShell:
+		m.viewShell(&b)
 	case stepConfirm:
 		m.viewConfirm(&b)
 	}
 	return b.String()
+}
+
+func (m setupModel) viewShell(b *strings.Builder) {
+	b.WriteString(selStyle.Render(i18n.T("setup.shell.title")) + "\n\n")
+	if m.alreadyWired {
+		b.WriteString("  " + okStyle.Render("✓ ") + dimStyle.Render(i18n.Tf("setup.shell.already", m.rcLabel)) + "\n\n")
+		b.WriteString(dimStyle.Render(i18n.T("setup.hint.next")))
+		return
+	}
+	b.WriteString("  " + dimStyle.Render(i18n.Tf("setup.shell.prompt", m.rcLabel)) + "\n\n")
+	for i, opt := range []string{i18n.T("setup.shell.yes"), i18n.T("setup.shell.no")} {
+		m.viewRadio(b, i, opt)
+	}
+	b.WriteString("\n" + dimStyle.Render(i18n.T("setup.hint.single")))
 }
 
 func (m setupModel) viewRoots(b *strings.Builder) {
@@ -243,6 +295,14 @@ func (m setupModel) viewConfirm(b *strings.Builder) {
 	row(i18n.T("setup.row.roots"), strings.Join(s.Scan.Roots, "  "))
 	row(i18n.T("setup.row.editor"), s.Actions.Editor)
 	row(i18n.T("setup.row.ai"), s.AI.Tool)
+	switch {
+	case m.alreadyWired:
+		row(i18n.T("setup.row.shell"), i18n.T("setup.shellval.already"))
+	case m.writeShell:
+		row(i18n.T("setup.row.shell"), i18n.Tf("setup.shellval.write", m.rcLabel))
+	default:
+		row(i18n.T("setup.row.shell"), i18n.T("setup.shellval.skip"))
+	}
 	b.WriteString("\n" + dimStyle.Render(i18n.T("setup.hint.confirm")))
 }
 
@@ -250,25 +310,26 @@ func (m setupModel) viewConfirm(b *strings.Builder) {
 func dimMuted(s string) string { return dimStyle.Render(s) }
 
 // RunSetup shows the first-run wizard on the controlling terminal and returns the
-// edited settings plus whether the user confirmed. err is non-nil when there is
-// no tty, so the caller can fall back to a non-interactive preset.
-func RunSetup(s core.Settings, roots []core.RootCandidate, editors []action.Editor, assistants []string) (edited core.Settings, confirmed bool, err error) {
+// edited settings, whether the user confirmed, and whether they asked to wire the
+// shell integration. err is non-nil when there is no tty, so the caller can fall
+// back to a non-interactive preset.
+func RunSetup(in SetupInput) (edited core.Settings, confirmed, writeShell bool, err error) {
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		return s, false, err
+		return in.Settings, false, false, err
 	}
 	defer func() { _ = tty.Close() }()
-	setupColors(tty, s.UI.Theme)
+	setupColors(tty, in.Settings.UI.Theme)
 
 	final, err := tea.NewProgram(
-		newSetupModel(s, roots, editors, assistants),
+		newSetupModel(in),
 		tea.WithInput(tty),
 		tea.WithOutput(tty),
 		tea.WithAltScreen(),
 	).Run()
 	if err != nil {
-		return s, false, err
+		return in.Settings, false, false, err
 	}
 	fm, _ := final.(setupModel)
-	return fm.settings(), fm.confirmed, nil
+	return fm.settings(), fm.confirmed, fm.writeShell && !fm.alreadyWired, nil
 }

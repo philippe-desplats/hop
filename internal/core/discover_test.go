@@ -38,6 +38,39 @@ func TestDiscoverRoots(t *testing.T) {
 	}
 }
 
+func TestDiscoverRootsFindsCustomNamesByContent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	mkRepo(t, filepath.Join(home, "my-stuff", "proj"))    // custom name, has a repo
+	mkRepo(t, filepath.Join(home, "Downloads", "cloned")) // denylisted location
+	if err := os.MkdirAll(filepath.Join(home, "scratch"), 0o750); err != nil {
+		t.Fatal(err) // a repo-less custom dir
+	}
+
+	paths := map[string]int{}
+	for _, c := range DiscoverRoots() {
+		paths[c.Path] = c.Repos
+	}
+	if paths["~/my-stuff"] != 1 {
+		t.Errorf("expected ~/my-stuff found by content with 1 repo, got %v", paths)
+	}
+	if _, ok := paths["~/Downloads"]; ok {
+		t.Error("~/Downloads must be excluded (denylisted)")
+	}
+	if _, ok := paths["~/scratch"]; ok {
+		t.Error("a repo-less custom dir must not be proposed")
+	}
+}
+
+func TestCountReposIgnoresDependencyDirs(t *testing.T) {
+	root := t.TempDir()
+	mkRepo(t, filepath.Join(root, "node_modules", "pkg")) // must NOT count
+	mkRepo(t, filepath.Join(root, "real"))                // counts
+	if n := countRepos(root, 0); n != 1 {
+		t.Fatalf("countRepos = %d, want 1 (node_modules ignored)", n)
+	}
+}
+
 func TestCountReposStopsAtRepoAndDepth(t *testing.T) {
 	root := t.TempDir()
 	mkRepo(t, filepath.Join(root, "a"))                  // depth 0 repo, a leaf

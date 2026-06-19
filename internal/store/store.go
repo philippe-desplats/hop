@@ -66,7 +66,7 @@ func Update(path string, target any, blocking bool, mutate func() error) (bool, 
 			// Corrupt, not missing: back up the bytes before target's reset value
 			// overwrites them, so a hand-edit slip or disk fault is recoverable.
 			backup := fmt.Sprintf("%s.corrupt-%d", path, os.Getpid())
-			if werr := os.WriteFile(backup, data, 0o600); werr == nil {
+			if werr := os.WriteFile(backup, data, 0o600); werr == nil { //nolint:gosec // backup path derived from the internal state file path, not untrusted input
 				fmt.Fprintf(os.Stderr, "hop: %s was corrupt, backed up to %s and reset\n",
 					filepath.Base(path), filepath.Base(backup))
 			}

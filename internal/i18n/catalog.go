@@ -60,6 +60,9 @@ var catalog = map[Lang]map[string]string{
 		"cli.frequent_header":      "hop · %d projects (no interactive terminal, list fallback):",
 		"cli.tip":                  "tip: p <keyword> [<keyword>...] to jump, p - to go back",
 		"cli.no_prev":              "hop: no previous project",
+		"cli.pruned":               "hop: removed %d dead path(s)",
+		"cli.pinned":               "hop: pinned %s",
+		"cli.unpinned":             "hop: unpinned %s",
 		"cli.config_created":       "hop: config created at %s",
 		"cli.config_saved":         "hop: config saved → %s",
 		"cli.scan_summary":         "hop: %d projects indexed in %d categories",
@@ -75,6 +78,9 @@ Usage:
   hop add <path>         Record a visit (frecency)
   hop init zsh [--cmd N] Print the shell integration (function "p" by default)
   hop config             Interactive configuration editor
+  hop pin <keyword>      Pin the matching project to the top of the Hub
+  hop unpin <keyword>    Remove a pin
+  hop clean              Forget projects whose folder no longer exists
   hop doctor             Configuration diagnostics
   hop version            Print the version
 
@@ -142,6 +148,9 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zsh_init:
 		"cli.frequent_header":      "hop · %d projets (pas de terminal interactif, repli liste) :",
 		"cli.tip":                  "astuce : p <mot-clé> [<mot-clé>...] pour sauter, p - pour revenir",
 		"cli.no_prev":              "hop: pas de projet précédent",
+		"cli.pruned":               "hop: %d chemin(s) mort(s) supprimé(s)",
+		"cli.pinned":               "hop: %s épinglé",
+		"cli.unpinned":             "hop: %s désépinglé",
 		"cli.config_created":       "hop: config créée dans %s",
 		"cli.config_saved":         "hop: config sauvegardée → %s",
 		"cli.scan_summary":         "hop: %d projets indexés dans %d catégories",
@@ -157,6 +166,9 @@ Usage:
   hop add <path>         Enregistre un accès (frécence)
   hop init zsh [--cmd N] Imprime l'intégration shell (fonction "p" par défaut)
   hop config             Éditeur de configuration interactif
+  hop pin <mot-clé>      Épingle le projet correspondant en tête du Hub
+  hop unpin <mot-clé>    Retire un épinglage
+  hop clean              Oublie les projets dont le dossier n'existe plus
   hop doctor             Diagnostic de configuration
   hop version            Affiche la version
 
@@ -224,6 +236,9 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zsh_init :
 		"cli.frequent_header":      "hop · %d proyectos (sin terminal interactiva, lista de respaldo):",
 		"cli.tip":                  "consejo: p <palabra> [<palabra>...] para saltar, p - para volver",
 		"cli.no_prev":              "hop: sin proyecto anterior",
+		"cli.pruned":               "hop: %d ruta(s) muerta(s) eliminada(s)",
+		"cli.pinned":               "hop: %s fijado",
+		"cli.unpinned":             "hop: %s desfijado",
 		"cli.config_created":       "hop: config creada en %s",
 		"cli.config_saved":         "hop: config guardada → %s",
 		"cli.scan_summary":         "hop: %d proyectos indexados en %d categorías",
@@ -239,6 +254,9 @@ Uso:
   hop add <path>         Registra un acceso (frecencia)
   hop init zsh [--cmd N] Imprime la integración del shell (función "p" por defecto)
   hop config             Editor de configuración interactivo
+  hop pin <palabra>      Fija el proyecto correspondiente arriba del Hub
+  hop unpin <palabra>    Quita una fijación
+  hop clean              Olvida proyectos cuya carpeta ya no existe
   hop doctor             Diagnóstico de configuración
   hop version            Muestra la versión
 
@@ -306,6 +324,9 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zsh_init:
 		"cli.frequent_header":      "hop · %d projetos (sem terminal interativo, lista alternativa):",
 		"cli.tip":                  "dica: p <palavra> [<palavra>...] para saltar, p - para voltar",
 		"cli.no_prev":              "hop: sem projeto anterior",
+		"cli.pruned":               "hop: %d caminho(s) morto(s) removido(s)",
+		"cli.pinned":               "hop: %s fixado",
+		"cli.unpinned":             "hop: %s desafixado",
 		"cli.config_created":       "hop: config criada em %s",
 		"cli.config_saved":         "hop: config salva → %s",
 		"cli.scan_summary":         "hop: %d projetos indexados em %d categorias",
@@ -321,6 +342,9 @@ Uso:
   hop add <path>         Registra um acesso (frecência)
   hop init zsh [--cmd N] Imprime a integração do shell (função "p" por padrão)
   hop config             Editor de configuração interativo
+  hop pin <palavra>      Fixa o projeto correspondente no topo do Hub
+  hop unpin <palavra>    Remove uma fixação
+  hop clean              Esquece projetos cuja pasta não existe mais
   hop doctor             Diagnóstico de configuração
   hop version            Mostra a versão
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,64 @@ func cmdScan(_ []string) {
 		}
 	}
 	fmt.Fprintln(os.Stderr, i18n.Tf("cli.scan_summary", len(idx.Projects), len(cats)))
+	if removed, _ := core.PruneFrecency(); removed > 0 {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed))
+	}
+}
+
+// parseJumpBack parses "-", "-2", "-3" into the nth-most-recent index (n >= 1).
+// ok is false when arg is not a jump-back token.
+func parseJumpBack(arg string) (int, bool) {
+	rest := strings.TrimPrefix(arg, "-")
+	if rest == "" {
+		return 1, true
+	}
+	if n, err := strconv.Atoi(rest); err == nil && n >= 1 {
+		return n, true
+	}
+	return 0, false
+}
+
+// cmdClean prunes frecency entries whose directory no longer exists.
+func cmdClean(_ []string) {
+	removed, err := core.PruneFrecency()
+	if err != nil {
+		fatal(err)
+	}
+	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed))
+}
+
+// cmdPin pins the project matching the keywords so it floats to the top of the
+// Hub; cmdUnpin removes it.
+func cmdPin(args []string)   { pinOrUnpin(args, true) }
+func cmdUnpin(args []string) { pinOrUnpin(args, false) }
+
+func pinOrUnpin(args []string, pin bool) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "hop: usage: hop pin|unpin <keyword>")
+		os.Exit(2)
+	}
+	settings := core.LoadSettings()
+	cfg := core.ScanConfig(settings)
+	idx, _ := core.LoadIndexOrBuild(cfg, true)
+	weights := core.RankWeights{Fuzzy: settings.Resolver.WFuzzy, Frecency: settings.Resolver.WFrecency}
+	matches := core.Resolve(idx.Projects, core.LoadFrecency(), args, time.Now(), weights)
+	if len(matches) == 0 {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.no_project", strings.Join(args, " ")))
+		os.Exit(1)
+	}
+	p := matches[0].Project
+	if pin {
+		if _, err := core.AddPin(p.Path); err != nil {
+			fatal(err)
+		}
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pinned", p.Name))
+		return
+	}
+	if _, err := core.RemovePin(p.Path); err != nil {
+		fatal(err)
+	}
+	fmt.Fprintln(os.Stderr, i18n.Tf("cli.unpinned", p.Name))
 }
 
 func cmdNav(args []string) {
@@ -44,16 +103,18 @@ func cmdNav(args []string) {
 		Custom:   settings.Actions.Custom,
 	}
 
-	// `p -` : jump back to the previous project (second most recent visit).
-	if len(args) == 1 && args[0] == "-" {
-		cwd, _ := os.Getwd()
-		prev := frec.MostRecentExcept(core.CanonicalDir(cwd))
-		if prev == "" {
-			fmt.Fprintln(os.Stderr, i18n.T("cli.no_prev"))
-			os.Exit(1)
+	// Jump-list: `p -` (previous), `p -2`, `p -3` (nth most recent, excluding cwd).
+	if len(args) == 1 && strings.HasPrefix(args[0], "-") {
+		if n, ok := parseJumpBack(args[0]); ok {
+			cwd, _ := os.Getwd()
+			prev := frec.NthMostRecentExcept(core.CanonicalDir(cwd), n)
+			if prev == "" {
+				fmt.Fprintln(os.Stderr, i18n.T("cli.no_prev"))
+				os.Exit(1)
+			}
+			emitOutcome(action.Outcome{Cd: prev})
+			return
 		}
-		emitOutcome(action.Outcome{Cd: prev})
-		return
 	}
 
 	matches := core.Resolve(idx.Projects, frec, args, now, weights)

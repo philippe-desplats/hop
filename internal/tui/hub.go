@@ -6,6 +6,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -154,6 +155,7 @@ type model struct {
 	actionKey string
 	git       map[string]core.GitInfo // async git preview cache
 	gitReq    map[string]bool         // paths already requested
+	pinned    map[string]bool         // pinned project paths (favorites)
 }
 
 func newModel(projects []core.Project, frec *core.Frecency, roots []string, access string, opts action.Options, weights core.RankWeights) model {
@@ -161,6 +163,7 @@ func newModel(projects []core.Project, frec *core.Frecency, roots []string, acce
 		projects: projects, frec: frec, roots: roots, access: access, opts: opts, weights: weights, height: 20,
 		git:    map[string]core.GitInfo{},
 		gitReq: map[string]bool{},
+		pinned: core.LoadPins().Set(),
 	}
 	m.refilter()
 	return m
@@ -182,6 +185,12 @@ func (m model) withGit() (tea.Model, tea.Cmd) {
 
 func (m *model) refilter() {
 	m.matches = core.Resolve(m.projects, m.frec, strings.Fields(m.query), time.Now(), m.weights)
+	// On the bare list (no query), float pinned favorites to the top.
+	if strings.TrimSpace(m.query) == "" && len(m.pinned) > 0 {
+		sort.SliceStable(m.matches, func(i, j int) bool {
+			return m.pinned[m.matches[i].Project.Path] && !m.pinned[m.matches[j].Project.Path]
+		})
+	}
 	if m.cursor >= len(m.matches) {
 		m.cursor = len(m.matches) - 1
 	}
@@ -367,7 +376,11 @@ func (m model) renderRow(i int) string {
 	if i == m.cursor {
 		return m.renderSelected(disp, kws)
 	}
-	return "    " + styledPath(disp, p.Category, kws)
+	gutter := "    "
+	if m.pinned[p.Path] {
+		gutter = "  " + warnStyle.Render("★") + " "
+	}
+	return gutter + styledPath(disp, p.Category, kws)
 }
 
 // renderSelected draws the highlighted full-width selection bar, keeping matched

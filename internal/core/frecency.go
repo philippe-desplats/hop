@@ -1,7 +1,9 @@
 package core
 
 import (
+	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/philippe-desplats/hop/internal/store"
@@ -60,21 +62,49 @@ func AddFrecency(path string, now time.Time, blocking bool) (bool, error) {
 	})
 }
 
-// MostRecentExcept returns the path of the most recently accessed entry whose
-// path differs from exclude, or "" if there is none. Used by `p -`.
+// MostRecentExcept returns the most recently accessed entry other than exclude,
+// or "" if there is none. Used by `p -`.
 func (f *Frecency) MostRecentExcept(exclude string) string {
-	best := ""
-	var bestAt int64 = -1
-	for path, e := range f.Entries {
-		if path == exclude {
-			continue
-		}
-		if e.LastAccess > bestAt {
-			bestAt = e.LastAccess
-			best = path
+	return f.NthMostRecentExcept(exclude, 1)
+}
+
+// NthMostRecentExcept returns the nth most recently accessed entry (n=1 is the
+// most recent) other than exclude, or "" if there are fewer than n. Powers the
+// jump-list `p -`, `p -2`, `p -3`.
+func (f *Frecency) NthMostRecentExcept(exclude string, n int) string {
+	if n < 1 {
+		return ""
+	}
+	paths := make([]string, 0, len(f.Entries))
+	for path := range f.Entries {
+		if path != exclude {
+			paths = append(paths, path)
 		}
 	}
-	return best
+	sort.Slice(paths, func(i, j int) bool {
+		return f.Entries[paths[i]].LastAccess > f.Entries[paths[j]].LastAccess
+	})
+	if n > len(paths) {
+		return ""
+	}
+	return paths[n-1]
+}
+
+// PruneFrecency drops entries whose directory no longer exists, returning the
+// number removed.
+func PruneFrecency() (int, error) {
+	f := emptyFrecency()
+	removed := 0
+	_, err := store.Update(FrecencyPath(), f, true, func() error {
+		for path := range f.Entries {
+			if _, statErr := os.Stat(path); statErr != nil {
+				delete(f.Entries, path)
+				removed++
+			}
+		}
+		return nil
+	})
+	return removed, err
 }
 
 // Score is the zoxide-style frecency: rank weighted by recency buckets.

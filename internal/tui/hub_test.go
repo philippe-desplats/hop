@@ -79,6 +79,17 @@ func aiOpts() action.Options {
 	return action.Options{AI: action.Assistant{Name: "claude", Run: []string{"claude"}, Resume: []string{"claude", "--resume"}}, HasAI: true}
 }
 
+func TestHubPinnedFloatsFirst(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	if _, err := core.AddPin("/p/work/toolbox"); err != nil {
+		t.Fatal(err)
+	}
+	m := newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	if len(m.matches) == 0 || m.matches[0].Project.Path != "/p/work/toolbox" {
+		t.Fatalf("pinned project should float to top on the bare list, got %+v", m.matches)
+	}
+}
+
 func TestHubFilterAndSelect(t *testing.T) {
 	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
 	m = typeRunes(m, "ops")

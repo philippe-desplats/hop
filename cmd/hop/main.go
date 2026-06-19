@@ -36,6 +36,12 @@ func main() {
 		cmdConfig(args[1:])
 	case "complete":
 		cmdComplete(args[1:])
+	case "pin":
+		cmdPin(args[1:])
+	case "unpin":
+		cmdUnpin(args[1:])
+	case "clean":
+		cmdClean(args[1:])
 	case "doctor":
 		cmdDoctor(args[1:])
 	case "version", "--version", "-v":

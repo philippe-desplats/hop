@@ -68,11 +68,13 @@ Open a new shell. The first invocation indexes your project roots automatically.
 
 ```sh
 p api            # jump straight to the best match (e.g. acme-api)
-p web            # -> ~/code/web-shop
 p acme web       # multiple keywords: narrow by ordered sub-path
-p -              # jump back to the previous project
+p -              # jump back to the previous project (p -2, p -3 go further)
 p                # open the interactive Hub (fuzzy list, up/down + Enter = cd)
+hop pin web      # pin a project so it floats to the top of the Hub (marked with a star)
+hop unpin web    # remove a pin
 hop scan         # reindex on demand
+hop clean        # forget projects whose folder no longer exists
 hop doctor       # configuration diagnostics
 ```
 

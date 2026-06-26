@@ -22,7 +22,7 @@ jobs:
       - name: Run govulncheck
         uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
         with:
-          go-version-file: go.mod
+          go-version-input: "1.25.x" # scan against the latest patched 1.25, matching what we ship
           repo-checkout: true
 
   trivy:

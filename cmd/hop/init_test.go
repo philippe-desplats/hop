@@ -115,6 +115,65 @@ func TestCmdInitSubprocess(t *testing.T) {
 			t.Errorf("a valid config value must still be honoured, got:\n%s", stdout)
 		}
 	})
+
+	// `hop init --cmd zsh` reads as a transposed `hop init zsh`, but the flag loop
+	// used to take "zsh" as the function name and leave the shell at its default,
+	// emitting an integration that shadows the zsh binary with hop nav.
+	for _, shell := range []string{"zsh", "bash", "fish"} {
+		t.Run("--cmd "+shell+" is refused", func(t *testing.T) {
+			stdout, stderr, code, _ := run(t, "", "--cmd", shell)
+			if code != 2 {
+				t.Errorf("exit = %d, want 2 (ambiguous invocation)\nstderr: %s", code, stderr)
+			}
+			if strings.Contains(stdout, "function "+shell+" {") {
+				t.Errorf("hop must not emit an integration shadowing %s:\n%s", shell, stdout)
+			}
+			if stdout != "" {
+				t.Errorf("a refused invocation must print nothing on stdout, got:\n%s", stdout)
+			}
+			if !strings.Contains(stderr, "shell name") {
+				t.Errorf("stderr must name the ambiguity, got:\n%s", stderr)
+			}
+		})
+	}
+
+	t.Run("an explicit shell with a custom name still works", func(t *testing.T) {
+		stdout, stderr, code, _ := run(t, "", "zsh", "--cmd", "myjump")
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0\nstderr: %s", code, stderr)
+		}
+		if !strings.Contains(stdout, "function myjump {") {
+			t.Errorf("--cmd myjump must still be honoured, got:\n%s", stdout)
+		}
+	})
+
+	// The config is the one source that never exits: a shell name there follows
+	// the same warn-and-fall-back rule as any other unusable value.
+	t.Run("a config command equal to a shell name falls back to p", func(t *testing.T) {
+		stdout, stderr, code, configPath := run(t, "zsh", "zsh")
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0\nstderr: %s", code, stderr)
+		}
+		if !strings.Contains(stdout, "function p {") {
+			t.Errorf("stdout must fall back to the default name p, got:\n%s", stdout)
+		}
+		if !strings.Contains(stderr, configPath) {
+			t.Errorf("stderr must name the config file %q, got:\n%s", configPath, stderr)
+		}
+	})
+
+	t.Run("--cmd followed by a flag is a usage error", func(t *testing.T) {
+		stdout, stderr, code, _ := run(t, "", "--cmd", "-x", "zsh")
+		if code != 2 {
+			t.Errorf("exit = %d, want 2 (missing name)\nstderr: %s", code, stderr)
+		}
+		if stdout != "" {
+			t.Errorf("a refused invocation must print nothing on stdout, got:\n%s", stdout)
+		}
+		if !strings.Contains(stderr, "--cmd requires a name") {
+			t.Errorf("stderr must say the name is missing, not that it is malformed, got:\n%s", stderr)
+		}
+	})
 }
 
 func TestCmdNameValidation(t *testing.T) {
@@ -128,6 +187,22 @@ func TestCmdNameValidation(t *testing.T) {
 	for _, n := range invalid {
 		if cmdNameRe.MatchString(n) {
 			t.Errorf("%q should be invalid", n)
+		}
+	}
+	// A valid pattern is a valid name.
+	for _, n := range valid {
+		if !validCmdName(n) {
+			t.Errorf("validCmdName(%q) = false, want true", n)
+		}
+	}
+	// A shell name passes the pattern, yet naming the function after a shell makes
+	// the emitted integration shadow that shell's binary, so it must be refused.
+	for _, n := range []string{"zsh", "bash", "fish"} {
+		if !cmdNameRe.MatchString(n) {
+			t.Fatalf("precondition: %q is expected to pass the name pattern", n)
+		}
+		if validCmdName(n) {
+			t.Errorf("validCmdName(%q) = true, want false (collides with a shell name)", n)
 		}
 	}
 }

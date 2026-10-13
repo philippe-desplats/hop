@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/philippe-desplats/hop/internal/core"
@@ -15,11 +16,21 @@ var cmdNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 // defaultCmdName is the daily function name used when nothing valid overrides it.
 const defaultCmdName = "p"
 
+// supportedShells are the shells hop init can emit an integration for.
+var supportedShells = []string{"zsh", "bash", "fish"}
+
+// isShellName reports whether name is one of the shells hop init knows. Such a
+// name is refused as a function name: the integration would shadow the shell's
+// own binary, so typing `zsh` would run hop nav instead of starting a subshell.
+func isShellName(name string) bool {
+	return slices.Contains(supportedShells, name)
+}
+
 // validCmdName reports whether name is usable as the daily shell function name.
 // The pattern is deliberately tight: the name is interpolated into the three
 // integration templates, so anything outside it could inject shell syntax.
 func validCmdName(name string) bool {
-	return cmdNameRe.MatchString(name)
+	return cmdNameRe.MatchString(name) && !isShellName(name)
 }
 
 // cmdInit prints the shell integration. The daily function name defaults to "p"
@@ -37,7 +48,9 @@ func cmdInit(args []string) {
 		a := args[i]
 		switch {
 		case a == "--cmd":
-			if i+1 >= len(args) {
+			// A following flag is a missing name, not a malformed one: reject it
+			// here rather than letting it fall through to the name pattern.
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
 				fmt.Fprintln(os.Stderr, "hop: --cmd requires a name")
 				os.Exit(2)
 			}
@@ -57,11 +70,17 @@ func cmdInit(args []string) {
 		name = core.LoadSettings().Shell.Command
 	}
 	if !validCmdName(name) {
-		if !fromFlag {
+		switch {
+		case !fromFlag:
 			fmt.Fprintf(os.Stderr, "hop: ignoring invalid [shell] command %q in %s, using %q instead\n",
 				name, core.ConfigPath(), defaultCmdName)
 			name = defaultCmdName
-		} else {
+		case isShellName(name):
+			fmt.Fprintf(os.Stderr, "hop: --cmd %s is ambiguous: %s is a shell name, not a function name.\n"+
+				"  did you mean  hop init %s  (default name %q), or  hop init %s --cmd NAME ?\n",
+				name, name, name, defaultCmdName, name)
+			os.Exit(2)
+		default:
 			fmt.Fprintf(os.Stderr, "hop: invalid function name %q (letters, digits, underscore; not starting with a digit)\n", name)
 			os.Exit(2)
 		}

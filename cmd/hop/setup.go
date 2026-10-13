@@ -105,13 +105,24 @@ func expandTilde(p string) string {
 }
 
 // shellAlreadyWired reports whether the rc file already sources hop, so setup
-// never offers to add a duplicate line.
+// never offers to add a duplicate line. Only an active line counts: a commented
+// one wires nothing, and treating it as present would suppress the offer to add
+// the real line and then claim an integration the next shell will not have.
 func shellAlreadyWired(rc string) bool {
 	data, err := os.ReadFile(expandTilde(rc))
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(data), "hop init")
+	for line := range strings.Lines(string(data)) {
+		code := strings.TrimSpace(line)
+		if code == "" || strings.HasPrefix(code, "#") {
+			continue
+		}
+		if strings.Contains(code, "hop init") {
+			return true
+		}
+	}
+	return false
 }
 
 // wireShell appends the integration line to the rc file (creating it and its

@@ -12,11 +12,27 @@ import (
 
 var cmdNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+// defaultCmdName is the daily function name used when nothing valid overrides it.
+const defaultCmdName = "p"
+
+// validCmdName reports whether name is usable as the daily shell function name.
+// The pattern is deliberately tight: the name is interpolated into the three
+// integration templates, so anything outside it could inject shell syntax.
+func validCmdName(name string) bool {
+	return cmdNameRe.MatchString(name)
+}
+
 // cmdInit prints the shell integration. The daily function name defaults to "p"
 // and is overridable with --cmd NAME (or --cmd=NAME).
+//
+// The two sources of that name are not treated alike. A bad --cmd value is a
+// usage error: the user is right there to read the message. A bad config value
+// only earns a warning and a fall back to "p", because `hop init` is what the rc
+// file wraps in eval, so exiting would leave every new shell without the
+// function and with nothing pointing at the offending line.
 func cmdInit(args []string) {
 	shell := "zsh"
-	name := core.LoadSettings().Shell.Command // config value; --cmd overrides below
+	flagName, fromFlag := "", false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -25,10 +41,10 @@ func cmdInit(args []string) {
 				fmt.Fprintln(os.Stderr, "hop: --cmd requires a name")
 				os.Exit(2)
 			}
-			name = args[i+1]
+			flagName, fromFlag = args[i+1], true
 			i++
 		case strings.HasPrefix(a, "--cmd="):
-			name = strings.TrimPrefix(a, "--cmd=")
+			flagName, fromFlag = strings.TrimPrefix(a, "--cmd="), true
 		case strings.HasPrefix(a, "-"):
 			fmt.Fprintf(os.Stderr, "hop: unknown flag %q\n", a)
 			os.Exit(2)
@@ -36,9 +52,19 @@ func cmdInit(args []string) {
 			shell = a
 		}
 	}
-	if !cmdNameRe.MatchString(name) {
-		fmt.Fprintf(os.Stderr, "hop: invalid function name %q (letters, digits, underscore; not starting with a digit)\n", name)
-		os.Exit(2)
+	name := flagName
+	if !fromFlag {
+		name = core.LoadSettings().Shell.Command
+	}
+	if !validCmdName(name) {
+		if !fromFlag {
+			fmt.Fprintf(os.Stderr, "hop: ignoring invalid [shell] command %q in %s, using %q instead\n",
+				name, core.ConfigPath(), defaultCmdName)
+			name = defaultCmdName
+		} else {
+			fmt.Fprintf(os.Stderr, "hop: invalid function name %q (letters, digits, underscore; not starting with a digit)\n", name)
+			os.Exit(2)
+		}
 	}
 	emit := func(integration string) {
 		if created, _ := core.EnsureConfig(); created {

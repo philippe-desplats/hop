@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,18 +120,85 @@ func TestWireShellCreatesFishConfigDir(t *testing.T) {
 	}
 }
 
+// captureStderr runs fn with os.Stderr redirected to a pipe and returns what it
+// printed. The setup summary is entirely diagnostic, so it all goes to stderr.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	defer func() { os.Stderr = old }()
+	fn()
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String()
+}
+
+// TestPrintSetupSummaryFlagsAnUnknownShell covers the other half of the unknown
+// shell story: the suggestion is still printed, but it is announced as one and
+// names the $SHELL hop could not place, so a dash user is not told to edit a
+// file dash never reads.
+func TestPrintSetupSummaryFlagsAnUnknownShell(t *testing.T) {
+	idx := &core.Index{}
+	line := `eval "$(hop init zsh)"`
+
+	t.Setenv("SHELL", "/bin/dash")
+	out := captureStderr(t, func() { printSetupSummary(idx, "~/.zshrc", line, false, false, false) })
+	if !strings.Contains(out, "/bin/dash") {
+		t.Errorf("the hint must name the detected $SHELL, got:\n%s", out)
+	}
+	if !strings.Contains(out, "suggestion") {
+		t.Errorf("the hint must announce the zsh line as a suggestion, got:\n%s", out)
+	}
+	if !strings.Contains(out, line) {
+		t.Errorf("the zsh line is still worth printing, got:\n%s", out)
+	}
+
+	t.Setenv("SHELL", "/bin/zsh")
+	out = captureStderr(t, func() { printSetupSummary(idx, "~/.zshrc", line, false, false, true) })
+	if strings.Contains(out, "suggestion") {
+		t.Errorf("a recognised shell must get the plain hint, got:\n%s", out)
+	}
+	if !strings.Contains(out, line) {
+		t.Errorf("the hint must carry the line to add, got:\n%s", out)
+	}
+}
+
+// TestDetectShell pins the detected triple and, for each $SHELL, whether hop
+// actually recognised it. The zsh triple doubles as the fallback suggestion, so
+// the returned rc and line alone cannot tell a real zsh from an unknown shell:
+// only `known` can, and it is what stops setup from writing into ~/.zshrc on
+// behalf of a dash or ksh user.
 func TestDetectShell(t *testing.T) {
-	cases := map[string]struct{ shell, rc string }{
-		"/bin/zsh":            {"zsh", "~/.zshrc"},
-		"/usr/bin/bash":       {"bash", "~/.bashrc"},
-		"/usr/local/bin/fish": {"fish", "~/.config/fish/config.fish"},
-		"":                    {"zsh", "~/.zshrc"}, // unknown falls back to zsh
+	cases := map[string]struct {
+		shell, rc string
+		known     bool
+	}{
+		"/bin/zsh":             {"zsh", "~/.zshrc", true},
+		"/usr/bin/bash":        {"bash", "~/.bashrc", true},
+		"/usr/local/bin/fish":  {"fish", "~/.config/fish/config.fish", true},
+		"":                     {"zsh", "~/.zshrc", true}, // unset $SHELL stays a zsh default
+		"/bin/dash":            {"zsh", "~/.zshrc", false},
+		"/bin/ksh":             {"zsh", "~/.zshrc", false},
+		"/bin/sh":              {"zsh", "~/.zshrc", false},
+		"/opt/homebrew/bin/nu": {"zsh", "~/.zshrc", false},
 	}
 	for shellPath, want := range cases {
 		t.Setenv("SHELL", shellPath)
-		shell, rc, line := detectShell()
+		shell, rc, line, known := detectShell()
 		if shell != want.shell || rc != want.rc {
 			t.Errorf("detectShell(%q) = %q,%q, want %q,%q", shellPath, shell, rc, want.shell, want.rc)
+		}
+		if known != want.known {
+			t.Errorf("detectShell(%q) known = %v, want %v", shellPath, known, want.known)
 		}
 		if line == "" {
 			t.Errorf("detectShell(%q) returned an empty shell line", shellPath)

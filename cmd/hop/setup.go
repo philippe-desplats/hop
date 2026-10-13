@@ -20,7 +20,7 @@ func cmdSetup(_ []string) {
 	settings := core.LoadSettings()
 	roots := core.DiscoverRoots()
 	editors := action.DetectEditors()
-	shell, rc, line := detectShell()
+	shell, rc, line, knownShell := detectShell()
 	wired := shellAlreadyWired(rc)
 
 	edited, confirmed, writeShell, err := tui.RunSetup(tui.SetupInput{
@@ -45,14 +45,16 @@ func cmdSetup(_ []string) {
 	idx := core.BuildAndSaveIndex(core.ScanConfig(edited))
 
 	wroteShell := false
-	if writeShell && !wired {
+	// An unrecognised shell is never wired automatically: rc would be ~/.zshrc,
+	// which that shell does not read. The summary prints the line to adapt instead.
+	if writeShell && !wired && knownShell {
 		if werr := wireShell(rc, line); werr != nil {
 			fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_failed", rc))
 		} else {
 			wroteShell = true
 		}
 	}
-	printSetupSummary(idx, rc, line, wired, wroteShell)
+	printSetupSummary(idx, rc, line, wired, wroteShell, knownShell)
 }
 
 // presetSettings folds auto-detected defaults onto settings without prompting:
@@ -79,15 +81,28 @@ func presetSettings(s core.Settings, roots []core.RootCandidate, editors []actio
 }
 
 // detectShell maps $SHELL to the shell name, its rc file and the exact line the
-// user must add to wire up the daily `p` function. Defaults to zsh.
-func detectShell() (shell, rc, line string) {
+// user must add to wire up the daily `p` function.
+//
+// known tells the caller whether $SHELL was actually recognised. The zsh triple
+// is returned either way, because it is still the most useful thing to suggest,
+// but on an unknown shell it is only a suggestion: dash, ksh, sh, nushell and
+// elvish never source ~/.zshrc, so writing into it would create a file the shell
+// ignores and report a success the user cannot observe. An unset $SHELL, common
+// under a GUI launcher, a container or `env -i`, stays a zsh default.
+func detectShell() (shell, rc, line string, known bool) {
+	const (
+		zshRc   = "~/.zshrc"
+		zshLine = `eval "$(hop init zsh)"`
+	)
 	switch filepath.Base(os.Getenv("SHELL")) {
 	case "fish":
-		return "fish", "~/.config/fish/config.fish", "hop init fish | source"
+		return "fish", "~/.config/fish/config.fish", "hop init fish | source", true
 	case "bash":
-		return "bash", "~/.bashrc", `eval "$(hop init bash)"`
+		return "bash", "~/.bashrc", `eval "$(hop init bash)"`, true
+	case "zsh", ".": // filepath.Base("") is ".": $SHELL is unset
+		return "zsh", zshRc, zshLine, true
 	default:
-		return "zsh", "~/.zshrc", `eval "$(hop init zsh)"`
+		return "zsh", zshRc, zshLine, false
 	}
 }
 
@@ -142,7 +157,7 @@ func wireShell(rc, line string) error {
 	return err
 }
 
-func printSetupSummary(idx *core.Index, rc, line string, wired, wroteShell bool) {
+func printSetupSummary(idx *core.Index, rc, line string, wired, wroteShell, knownShell bool) {
 	fmt.Fprintln(os.Stderr, i18n.Tf("setup.done", len(idx.Projects)))
 	fmt.Fprintln(os.Stderr)
 	switch {
@@ -151,6 +166,11 @@ func printSetupSummary(idx *core.Index, rc, line string, wired, wroteShell bool)
 	case wired:
 		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_present", rc))
 	default:
+		if !knownShell {
+			fmt.Fprintf(os.Stderr, "hop does not know the shell in $SHELL (%s), so it cannot wire it for you.\n"+
+				"The zsh line below is only a suggestion: adapt it to your shell's own startup file.\n",
+				os.Getenv("SHELL"))
+		}
 		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_hint", rc))
 		fmt.Fprintln(os.Stderr, "    "+line)
 	}

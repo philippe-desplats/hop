@@ -13,7 +13,7 @@ import (
 // / XDG state and a stub `zoxide` on PATH; the child runs cmdImport and exits.
 func TestCmdImportSubprocess(t *testing.T) {
 	if os.Getenv("HOP_IMPORT_CHILD") == "1" {
-		cmdImport(strings.Fields(os.Getenv("HOP_IMPORT_ARGS")))
+		cmdImport(decodeArgv(os.Getenv("HOP_IMPORT_ARGV")))
 		os.Exit(0) // exit before the test runner prints PASS to stdout
 	}
 
@@ -26,7 +26,7 @@ func TestCmdImportSubprocess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	run := func(t *testing.T, args string, withStub bool) (string, int, string) {
+	run := func(t *testing.T, withStub bool, argv ...string) (string, int, string) {
 		t.Helper()
 		home := t.TempDir()
 		stateDir := filepath.Join(t.TempDir(), "state")
@@ -42,7 +42,7 @@ func TestCmdImportSubprocess(t *testing.T) {
 		cmd := exec.Command(os.Args[0], "-test.run=TestCmdImportSubprocess")
 		cmd.Env = []string{
 			"HOP_IMPORT_CHILD=1",
-			"HOP_IMPORT_ARGS=" + args,
+			"HOP_IMPORT_ARGV=" + encodeArgv(t, argv),
 			"HOME=" + home,
 			"XDG_STATE_HOME=" + stateDir,
 			"XDG_CONFIG_HOME=" + configDir,
@@ -60,17 +60,24 @@ func TestCmdImportSubprocess(t *testing.T) {
 	}
 
 	t.Run("no zoxide on PATH errors", func(t *testing.T) {
-		out, code, _ := run(t, "--from zoxide", false)
-		if code == 0 {
-			t.Errorf("expected non-zero exit when zoxide is absent, got 0\n%s", out)
+		out, code, _ := run(t, false, "--from", "zoxide")
+		if code != 1 {
+			t.Errorf("exit = %d, want 1 (nothing to import from)\n%s", code, out)
 		}
 		if !strings.Contains(out, "not found") {
 			t.Errorf("expected an install hint, got:\n%s", out)
 		}
 	})
 
+	t.Run("an unknown source is a usage error", func(t *testing.T) {
+		out, code, _ := run(t, false, "--from", "mercurial")
+		if code != 2 {
+			t.Errorf("exit = %d, want 2 (usage error)\n%s", code, out)
+		}
+	})
+
 	t.Run("real run tracks the repo and seeds frecency", func(t *testing.T) {
-		out, code, stateDir := run(t, "--from zoxide", true)
+		out, code, stateDir := run(t, true, "--from", "zoxide")
 		if code != 0 {
 			t.Errorf("exit = %d, want 0\n%s", code, out)
 		}
@@ -94,7 +101,7 @@ func TestCmdImportSubprocess(t *testing.T) {
 	})
 
 	t.Run("dry-run writes nothing", func(t *testing.T) {
-		out, code, stateDir := run(t, "--from zoxide --dry-run", true)
+		out, code, stateDir := run(t, true, "--from", "zoxide", "--dry-run")
 		if code != 0 {
 			t.Errorf("exit = %d, want 0\n%s", code, out)
 		}

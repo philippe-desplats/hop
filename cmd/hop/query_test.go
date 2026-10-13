@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +11,33 @@ import (
 
 	"github.com/philippe-desplats/hop/internal/core"
 )
+
+// encodeArgv and decodeArgv are the two ends of the argv channel used by the
+// subprocess tests of this package (query and import): argv travels to the
+// child as a JSON array in one environment variable, so an argument containing
+// a space, or any argument boundary at all, survives the trip. Splitting the
+// variable on whitespace in the child would make `hop query "my project"`
+// inexpressible.
+func encodeArgv(t *testing.T, argv []string) string {
+	t.Helper()
+	raw, err := json.Marshal(argv)
+	if err != nil {
+		t.Fatalf("encoding argv %q: %v", argv, err)
+	}
+	return string(raw)
+}
+
+// decodeArgv runs in the child, where t is not available: a malformed argv is a
+// broken test harness, not a command failure, so it exits with a code no
+// command under test uses.
+func decodeArgv(raw string) []string {
+	var argv []string
+	if err := json.Unmarshal([]byte(raw), &argv); err != nil {
+		fmt.Fprintf(os.Stderr, "child: cannot decode argv %q: %v\n", raw, err)
+		os.Exit(99)
+	}
+	return argv
+}
 
 func TestFirstSafePathSkipsControlChars(t *testing.T) {
 	matches := []core.Match{
@@ -41,26 +70,32 @@ func TestSafePathsFiltersControlChars(t *testing.T) {
 }
 
 // TestCmdQuerySubprocess re-executes the test binary so cmdQuery's os.Exit paths
-// run for real, against a scanned index of two repos under a temp ~/Projects.
+// run for real, against a scanned index of repos under a temp ~/Projects.
 func TestCmdQuerySubprocess(t *testing.T) {
 	if os.Getenv("HOP_QUERY_CHILD") == "1" {
-		cmdQuery(strings.Fields(os.Getenv("HOP_QUERY_ARGS")))
+		cmdQuery(decodeArgv(os.Getenv("HOP_QUERY_ARGV")))
 		os.Exit(0) // exit before the test runner prints PASS to stdout
 	}
 
+	// "my project" exercises an argument containing a space. "my-app/project-x"
+	// is a decoy: it is unreachable with the single keyword "my project", but it
+	// outranks "my project" as soon as that argument is split into the two
+	// keywords "my" and "project", so the space-carrying case below fails loudly
+	// if the seam ever loses the argument boundaries again.
+	projects := []string{"alpha", "beta", "my project", filepath.Join("my-app", "project-x")}
 	home := t.TempDir()
-	for _, name := range []string{"alpha", "beta"} {
+	for _, name := range projects {
 		if err := os.MkdirAll(filepath.Join(home, "Projects", name, ".git"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	run := func(t *testing.T, args string) (string, int) {
+	run := func(t *testing.T, argv ...string) (string, int) {
 		t.Helper()
 		cmd := exec.Command(os.Args[0], "-test.run=TestCmdQuerySubprocess")
 		cmd.Env = []string{
 			"HOP_QUERY_CHILD=1",
-			"HOP_QUERY_ARGS=" + args,
+			"HOP_QUERY_ARGV=" + encodeArgv(t, argv),
 			"HOME=" + home,
 			"XDG_STATE_HOME=" + filepath.Join(t.TempDir(), "state"),
 			"XDG_CONFIG_HOME=" + t.TempDir(),
@@ -91,10 +126,25 @@ func TestCmdQuerySubprocess(t *testing.T) {
 		}
 	})
 
+	t.Run("a single keyword containing a space resolves", func(t *testing.T) {
+		out, code := run(t, "my project")
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0\n%s", code, out)
+		}
+		// The index stores canonical paths, so compare against a resolved home.
+		root, err := filepath.EvalSymlinks(home)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := strings.TrimSpace(out), filepath.Join(root, "Projects", "my project"); got != want {
+			t.Errorf("path = %q, want %q", got, want)
+		}
+	})
+
 	t.Run("no match exits 1 with empty stdout", func(t *testing.T) {
 		out, code := run(t, "zzznomatch")
-		if code == 0 {
-			t.Errorf("expected non-zero exit on no match, got 0")
+		if code != 1 {
+			t.Errorf("exit = %d, want 1 (no match)\n%s", code, out)
 		}
 		if strings.TrimSpace(out) != "" {
 			t.Errorf("no-match stdout must be empty, got %q", out)
@@ -107,8 +157,8 @@ func TestCmdQuerySubprocess(t *testing.T) {
 			t.Fatalf("exit = %d, want 0\n%s", code, out)
 		}
 		lines := strings.Split(strings.TrimSpace(out), "\n")
-		if len(lines) != 2 {
-			t.Errorf("--list printed %d lines, want 2: %q", len(lines), out)
+		if len(lines) != len(projects) {
+			t.Errorf("--list printed %d lines, want %d: %q", len(lines), len(projects), out)
 		}
 	})
 }

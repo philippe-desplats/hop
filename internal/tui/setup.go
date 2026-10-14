@@ -297,10 +297,7 @@ func (m setupModel) viewRoots(b *strings.Builder) {
 		if m.rootSel[i] {
 			check = okStyle.Render("[x]")
 		}
-		marker, label := "  ", dimStyle.Render(r.Path)
-		if i == m.cursor {
-			marker, label = selStyle.Render("▸ "), selStyle.Render(r.Path)
-		}
+		marker, label := m.markerLabel(i, r.Path)
 		fmt.Fprintf(b, "%s%s %-20s %s\n", marker, check, label, dimStyle.Render(i18n.Tf("setup.roots.repos", r.Repos)))
 	}
 	if m.rootsRefused {
@@ -343,11 +340,19 @@ func (m setupModel) viewRadio(b *strings.Builder, i int, label string) {
 	if i == m.cursor {
 		radio = keyStyle.Render("(•)")
 	}
-	marker, text := "  ", dimStyle.Render(label)
-	if i == m.cursor {
-		marker, text = selStyle.Render("▸ "), selStyle.Render(label)
-	}
+	marker, text := m.markerLabel(i, label)
 	fmt.Fprintf(b, "%s%s %s\n", marker, radio, text)
+}
+
+// markerLabel is how row i draws: its leading marker and its styled payload,
+// highlighted when the cursor is on it. The checkbox rows of the roots step and
+// the radio rows of the single-select steps share it so a change to the cursor
+// row cannot be made to one kind and forgotten on the other.
+func (m setupModel) markerLabel(i int, s string) (string, string) {
+	if i == m.cursor {
+		return selStyle.Render("▸ "), selStyle.Render(s)
+	}
+	return "  ", dimStyle.Render(s)
 }
 
 func (m setupModel) viewConfirm(b *strings.Builder) {

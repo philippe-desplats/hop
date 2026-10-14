@@ -291,6 +291,44 @@ func TestSetupEscCancelsAfterAStepBack(t *testing.T) {
 	}
 }
 
+// The checkbox rows of the roots step and the radio rows of the single-select
+// steps mark the cursor row the same way, and now from one helper. This guard
+// proves nothing about that refactor — it passes either side of it. It is here
+// to fail the day one of the two row kinds is changed without the other, which
+// is how the wizard's two halves would come to highlight differently.
+func TestSetupCursorRowIsMarkedTheSameOnBothRowKinds(t *testing.T) {
+	i18n.SetLanguage("en")
+	m := newSetupModel(SetupInput{
+		Settings: core.DefaultSettings(),
+		Roots:    []core.RootCandidate{{Path: "~/work", Repos: 2}},
+		Editors:  []action.Editor{{Name: "Cursor", Bin: "cursor"}},
+	})
+	var roots, radio strings.Builder
+	m.viewRoots(&roots)
+	m.viewRadio(&radio, m.cursor, "Cursor")
+
+	for _, c := range []struct{ name, render, payload string }{
+		{"viewRoots", roots.String(), "~/work"},
+		{"viewRadio", radio.String(), "Cursor"},
+	} {
+		if row := cursorRowOf(t, c.render, c.payload); !strings.HasPrefix(row, "▸ ") {
+			t.Errorf("%s cursor row = %q, want it to start with %q", c.name, row, "▸ ")
+		}
+	}
+}
+
+// cursorRowOf is the rendered line carrying payload, ANSI stripped.
+func cursorRowOf(t *testing.T, render, payload string) string {
+	t.Helper()
+	for _, line := range strings.Split(stripANSI(render), "\n") {
+		if strings.Contains(line, payload) {
+			return line
+		}
+	}
+	t.Fatalf("no rendered line carries %q:\n%s", payload, stripANSI(render))
+	return ""
+}
+
 // RunSetup and RunConfig fail for two unrelated reasons: there is no terminal
 // to draw on, which the caller can answer non-interactively, and the program
 // itself failed after the screen was up, which means what the user did is lost.

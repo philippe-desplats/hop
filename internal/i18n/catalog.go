@@ -94,6 +94,8 @@ var catalog = map[Lang]map[string]string{
 		"setup.shell_done":       "Added the hop integration to %s. Restart your shell to use `p`.",
 		"setup.shell_present":    "Shell integration already present in %s.",
 		"setup.shell_failed":     "hop: could not write %s automatically.",
+		"setup.shell_unknown": "hop does not know the shell in $SHELL (%s), so it cannot wire it for you.\n" +
+			"The zsh line below is only a suggestion: adapt it to your shell's own startup file.",
 
 		"cli.no_project":            "hop: no project for %q",
 		"cli.no_index":              "hop: no project indexed, run `hop scan`",
@@ -122,7 +124,28 @@ var catalog = map[Lang]map[string]string{
 		"cli.doctor.root":           "root",
 		"cli.doctor.bin":            "binary",
 		"cli.doctor.index_missing":  "MISSING (run `hop scan`)",
-		"cli.unknown_command":       "hop: unknown command %q (try `hop help`)",
+		"cli.doctor.title":          "hop doctor",
+		"cli.doctor.ok":             "OK",
+		"cli.doctor.none_found":     "(none found)",
+		"cli.doctor.active":         "active: %s",
+		"cli.doctor.none":           "none",
+		"cli.doctor.editor":         "editor",
+		"cli.doctor.ai":             "ai",
+		"cli.doctor.action":         "action",
+		"cli.doctor.index":          "index",
+		"cli.init_cmd_no_name":      "hop: --cmd requires a name",
+		"cli.init_unknown_flag":     "hop: unknown flag %q",
+		"cli.init_invalid_name":     "hop: invalid function name %q (letters, digits, underscore; not starting with a digit)",
+		"cli.init_invalid_config":   "hop: ignoring invalid [shell] command %q in %s, using %q instead",
+		"cli.init_cmd_is_shell": "hop: --cmd %s is ambiguous: %s is a shell name, not a function name.\n" +
+			"  did you mean  hop init %s  (default name %q), or  hop init %s --cmd NAME ?",
+		"cli.init_unsupported_shell": "hop: unsupported shell %q (zsh, bash, fish)",
+		"cli.import_from_no_source":  "hop: --from requires a source (only zoxide is supported)",
+		"cli.pin_usage":              "hop: usage: hop pin <keyword>",
+		"cli.unpin_usage":            "hop: usage: hop unpin <keyword>",
+		"cli.nav_unknown_option":     "hop: unknown option %q",
+		"cli.nav_jump_usage":         "usage: p - (previous), p -2, p -3 (nth most recent)",
+		"cli.unknown_command":        "hop: unknown command %q (try `hop help`)",
 		"cli.help": `hop · project switcher
 
 Usage:
@@ -240,6 +263,8 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"setup.shell_done":       "Intégration hop ajoutée à %s. Relance ton shell pour utiliser `p`.",
 		"setup.shell_present":    "Intégration shell déjà présente dans %s.",
 		"setup.shell_failed":     "hop : impossible d'écrire %s automatiquement.",
+		"setup.shell_unknown": "hop ne connaît pas le shell indiqué dans $SHELL (%s), il ne peut donc pas le configurer pour toi.\n" +
+			"La ligne zsh ci-dessous n'est qu'une suggestion : adapte-la au fichier de démarrage de ton propre shell.",
 
 		"cli.no_project":            "hop: aucun projet pour %q",
 		"cli.no_index":              "hop: aucun projet indexé, lance `hop scan`",
@@ -268,7 +293,28 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"cli.doctor.root":           "racine",
 		"cli.doctor.bin":            "binaire",
 		"cli.doctor.index_missing":  "ABSENT (lance `hop scan`)",
-		"cli.unknown_command":       "hop: commande inconnue %q (essaie `hop help`)",
+		"cli.doctor.title":          "hop doctor",
+		"cli.doctor.ok":             "OK",
+		"cli.doctor.none_found":     "(aucun trouvé)",
+		"cli.doctor.active":         "actif : %s",
+		"cli.doctor.none":           "aucun",
+		"cli.doctor.editor":         "éditeur",
+		"cli.doctor.ai":             "ia",
+		"cli.doctor.action":         "action",
+		"cli.doctor.index":          "index",
+		"cli.init_cmd_no_name":      "hop : --cmd attend un nom",
+		"cli.init_unknown_flag":     "hop : option inconnue %q",
+		"cli.init_invalid_name":     "hop : nom de fonction invalide %q (lettres, chiffres, souligné ; ne commence pas par un chiffre)",
+		"cli.init_invalid_config":   "hop : commande [shell] invalide %q dans %s, ignorée, %q utilisé à la place",
+		"cli.init_cmd_is_shell": "hop : --cmd %s est ambigu : %s est un nom de shell, pas un nom de fonction.\n" +
+			"  voulais-tu  hop init %s  (nom par défaut %q), ou  hop init %s --cmd NOM ?",
+		"cli.init_unsupported_shell": "hop : shell non supporté %q (zsh, bash, fish)",
+		"cli.import_from_no_source":  "hop : --from attend une source (seul zoxide est supporté)",
+		"cli.pin_usage":              "hop : utilisation : hop pin <mot-clé>",
+		"cli.unpin_usage":            "hop : utilisation : hop unpin <mot-clé>",
+		"cli.nav_unknown_option":     "hop : option inconnue %q",
+		"cli.nav_jump_usage":         "utilisation : p - (précédent), p -2, p -3 (n-ième plus récent)",
+		"cli.unknown_command":        "hop: commande inconnue %q (essaie `hop help`)",
 		"cli.help": `hop · commutateur de projets
 
 Usage:
@@ -386,6 +432,8 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"setup.shell_done":       "Integración de hop añadida a %s. Reinicia tu shell para usar `p`.",
 		"setup.shell_present":    "Integración del shell ya presente en %s.",
 		"setup.shell_failed":     "hop: no se pudo escribir %s automáticamente.",
+		"setup.shell_unknown": "hop no conoce el shell indicado en $SHELL (%s), así que no puede configurarlo por ti.\n" +
+			"La línea zsh de abajo es solo una sugerencia: adáptala al archivo de inicio de tu propio shell.",
 
 		"cli.no_project":            "hop: ningún proyecto para %q",
 		"cli.no_index":              "hop: ningún proyecto indexado, ejecuta `hop scan`",
@@ -414,7 +462,28 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"cli.doctor.root":           "raíz",
 		"cli.doctor.bin":            "binario",
 		"cli.doctor.index_missing":  "AUSENTE (ejecuta `hop scan`)",
-		"cli.unknown_command":       "hop: comando desconocido %q (prueba `hop help`)",
+		"cli.doctor.title":          "hop doctor",
+		"cli.doctor.ok":             "OK",
+		"cli.doctor.none_found":     "(ninguno encontrado)",
+		"cli.doctor.active":         "activo: %s",
+		"cli.doctor.none":           "ninguno",
+		"cli.doctor.editor":         "editor",
+		"cli.doctor.ai":             "ia",
+		"cli.doctor.action":         "acción",
+		"cli.doctor.index":          "índice",
+		"cli.init_cmd_no_name":      "hop: --cmd requiere un nombre",
+		"cli.init_unknown_flag":     "hop: opción desconocida %q",
+		"cli.init_invalid_name":     "hop: nombre de función inválido %q (letras, dígitos, guion bajo; no empieza por un dígito)",
+		"cli.init_invalid_config":   "hop: se ignora el command [shell] inválido %q en %s, se usa %q en su lugar",
+		"cli.init_cmd_is_shell": "hop: --cmd %s es ambiguo: %s es un nombre de shell, no un nombre de función.\n" +
+			"  ¿querías  hop init %s  (nombre por defecto %q), o  hop init %s --cmd NOMBRE ?",
+		"cli.init_unsupported_shell": "hop: shell no soportado %q (zsh, bash, fish)",
+		"cli.import_from_no_source":  "hop: --from requiere una fuente (solo se admite zoxide)",
+		"cli.pin_usage":              "hop: uso: hop pin <palabra>",
+		"cli.unpin_usage":            "hop: uso: hop unpin <palabra>",
+		"cli.nav_unknown_option":     "hop: opción desconocida %q",
+		"cli.nav_jump_usage":         "uso: p - (anterior), p -2, p -3 (n-ésimo más reciente)",
+		"cli.unknown_command":        "hop: comando desconocido %q (prueba `hop help`)",
 		"cli.help": `hop · conmutador de proyectos
 
 Uso:
@@ -532,6 +601,8 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"setup.shell_done":       "Integração do hop adicionada a %s. Reinicie seu shell para usar `p`.",
 		"setup.shell_present":    "Integração do shell já presente em %s.",
 		"setup.shell_failed":     "hop: não foi possível escrever %s automaticamente.",
+		"setup.shell_unknown": "hop não conhece o shell indicado em $SHELL (%s), então não pode configurá-lo para você.\n" +
+			"A linha zsh abaixo é apenas uma sugestão: adapte-a ao arquivo de inicialização do seu próprio shell.",
 
 		"cli.no_project":            "hop: nenhum projeto para %q",
 		"cli.no_index":              "hop: nenhum projeto indexado, execute `hop scan`",
@@ -560,7 +631,28 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"cli.doctor.root":           "raiz",
 		"cli.doctor.bin":            "binário",
 		"cli.doctor.index_missing":  "AUSENTE (execute `hop scan`)",
-		"cli.unknown_command":       "hop: comando desconhecido %q (tente `hop help`)",
+		"cli.doctor.title":          "hop doctor",
+		"cli.doctor.ok":             "OK",
+		"cli.doctor.none_found":     "(nenhum encontrado)",
+		"cli.doctor.active":         "ativo: %s",
+		"cli.doctor.none":           "nenhum",
+		"cli.doctor.editor":         "editor",
+		"cli.doctor.ai":             "ia",
+		"cli.doctor.action":         "ação",
+		"cli.doctor.index":          "índice",
+		"cli.init_cmd_no_name":      "hop: --cmd exige um nome",
+		"cli.init_unknown_flag":     "hop: opção desconhecida %q",
+		"cli.init_invalid_name":     "hop: nome de função inválido %q (letras, dígitos, sublinhado; não começa por um dígito)",
+		"cli.init_invalid_config":   "hop: command [shell] inválido %q em %s ignorado, %q usado em seu lugar",
+		"cli.init_cmd_is_shell": "hop: --cmd %s é ambíguo: %s é um nome de shell, não um nome de função.\n" +
+			"  você quis dizer  hop init %s  (nome padrão %q), ou  hop init %s --cmd NOME ?",
+		"cli.init_unsupported_shell": "hop: shell não suportado %q (zsh, bash, fish)",
+		"cli.import_from_no_source":  "hop: --from exige uma fonte (apenas zoxide é suportado)",
+		"cli.pin_usage":              "hop: uso: hop pin <palavra>",
+		"cli.unpin_usage":            "hop: uso: hop unpin <palavra>",
+		"cli.nav_unknown_option":     "hop: opção desconhecida %q",
+		"cli.nav_jump_usage":         "uso: p - (anterior), p -2, p -3 (n-ésimo mais recente)",
+		"cli.unknown_command":        "hop: comando desconhecido %q (tente `hop help`)",
 		"cli.help": `hop · alternador de projetos
 
 Uso:

@@ -10,6 +10,7 @@ import (
 
 	"github.com/philippe-desplats/hop/internal/action"
 	"github.com/philippe-desplats/hop/internal/core"
+	"github.com/philippe-desplats/hop/internal/i18n"
 )
 
 func TestPresetSettings(t *testing.T) {
@@ -149,6 +150,10 @@ func captureStderr(t *testing.T, fn func()) string {
 func TestPrintSetupSummaryFlagsAnUnknownShell(t *testing.T) {
 	idx := &core.Index{}
 	line := `eval "$(hop init zsh)"`
+
+	// The hint comes from the catalog, and the assertions below quote the English
+	// wording, so the language is chosen here rather than left to the host locale.
+	i18n.SetLanguage("en")
 
 	t.Setenv("SHELL", "/bin/dash")
 	out := captureStderr(t, func() { printSetupSummary(idx, "~/.zshrc", line, false, false, false) })

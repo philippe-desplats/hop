@@ -151,7 +151,7 @@ func cmdImport(args []string) {
 		// the tail of, with nothing to tell it apart from the intended one.
 		case a == "--from":
 			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, "hop: --from requires a source (only zoxide is supported)")
+				fmt.Fprintln(os.Stderr, i18n.T("cli.import_from_no_source"))
 				os.Exit(2)
 			}
 			i++
@@ -159,7 +159,7 @@ func cmdImport(args []string) {
 		case strings.HasPrefix(a, "--from="):
 			source = strings.TrimPrefix(a, "--from=")
 			if source == "" {
-				fmt.Fprintln(os.Stderr, "hop: --from requires a source (only zoxide is supported)")
+				fmt.Fprintln(os.Stderr, i18n.T("cli.import_from_no_source"))
 				os.Exit(2)
 			}
 		default:
@@ -284,7 +284,13 @@ func cmdUnpin(args []string) { pinOrUnpin(args, false) }
 
 func pinOrUnpin(args []string, pin bool) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "hop: usage: hop pin|unpin <keyword>")
+		// Separate keys, not one "pin|unpin" message: the user typed exactly one
+		// of the two, and naming both leaves them to work out which they got wrong.
+		usage := "cli.unpin_usage"
+		if pin {
+			usage = "cli.pin_usage"
+		}
+		fmt.Fprintln(os.Stderr, i18n.T(usage))
 		os.Exit(2)
 	}
 	settings := core.LoadSettings()
@@ -336,8 +342,8 @@ func cmdNav(args []string) {
 	if len(args) == 1 && strings.HasPrefix(args[0], "-") {
 		n, ok := parseJumpBack(args[0])
 		if !ok {
-			fmt.Fprintf(os.Stderr, "hop: unknown option %q\n", args[0])
-			fmt.Fprintln(os.Stderr, "usage: p - (previous), p -2, p -3 (nth most recent)")
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.nav_unknown_option", args[0]))
+			fmt.Fprintln(os.Stderr, i18n.T("cli.nav_jump_usage"))
 			os.Exit(2)
 		}
 		cwd, _ := os.Getwd()
@@ -571,16 +577,17 @@ func cmdDoctor(_ []string) {
 	settings := core.LoadSettings()
 	cfg := core.ScanConfig(settings)
 	rootLbl, binLbl := i18n.T("cli.doctor.root"), i18n.T("cli.doctor.bin")
-	fmt.Println("hop doctor")
+	okLbl, noneFound := i18n.T("cli.doctor.ok"), i18n.T("cli.doctor.none_found")
+	fmt.Println(i18n.T("cli.doctor.title"))
 	for _, r := range cfg.Roots {
-		status := "OK"
+		status := okLbl
 		if fi, err := os.Stat(r); err != nil || !fi.IsDir() {
 			status = "✗"
 		}
 		fmt.Printf("  %-8s %-42s %s\n", rootLbl, r, status)
 	}
 	for _, bin := range []string{settings.Actions.Editor, "git", "tmux"} {
-		status := "OK"
+		status := okLbl
 		if _, err := exec.LookPath(bin); err != nil {
 			status = "✗"
 		}
@@ -592,24 +599,25 @@ func cmdDoctor(_ []string) {
 	}
 	edlist := strings.Join(editorBins, ", ")
 	if edlist == "" {
-		edlist = "(none found)"
+		edlist = noneFound
 	}
-	fmt.Printf("  %-8s %-42s %s\n", "editor", edlist, "active: "+settings.Actions.Editor)
+	fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.editor"), edlist, i18n.Tf("cli.doctor.active", settings.Actions.Editor))
 	list := strings.Join(action.DetectAssistants(), ", ")
 	if list == "" {
-		list = "(none found)"
+		list = noneFound
 	}
-	active := "none"
+	active := i18n.T("cli.doctor.none")
 	if ai, ok := action.ResolveAssistant(settings.AI.Tool); ok {
 		active = ai.Name
 	}
-	fmt.Printf("  %-8s %-42s %s\n", "ai", list, "active: "+active)
+	fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.ai"), list, i18n.Tf("cli.doctor.active", active))
 	for _, bad := range action.InvalidCustomActions(settings.Actions.Custom) {
-		fmt.Printf("  %-8s %-42s %s\n", "action", bad, "✗")
+		fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.action"), bad, "✗")
 	}
+	idxLbl := i18n.T("cli.doctor.index")
 	if idx, err := core.LoadIndex(); err == nil {
-		fmt.Printf("  %-8s %-42s %d\n", "index", core.IndexPath(), len(idx.Projects))
+		fmt.Printf("  %-8s %-42s %d\n", idxLbl, core.IndexPath(), len(idx.Projects))
 	} else {
-		fmt.Printf("  %-8s %-42s %s\n", "index", core.IndexPath(), i18n.T("cli.doctor.index_missing"))
+		fmt.Printf("  %-8s %-42s %s\n", idxLbl, core.IndexPath(), i18n.T("cli.doctor.index_missing"))
 	}
 }

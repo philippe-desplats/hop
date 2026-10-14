@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/philippe-desplats/hop/internal/core"
+	"github.com/philippe-desplats/hop/internal/i18n"
 )
 
 func TestZshIntegrationDefaultName(t *testing.T) {
@@ -38,24 +41,34 @@ func TestZshIntegrationCustomName(t *testing.T) {
 // about the config lands on stderr.
 func TestCmdInitSubprocess(t *testing.T) {
 	if os.Getenv("HOP_INIT_CHILD") == "1" {
+		// main's first act, repeated here: cmdInit's diagnostics come from the
+		// catalog, so the language the config pins has to be applied for the
+		// assertions below to be about English rather than about the host locale.
+		i18n.SetLanguage(core.LoadSettings().UI.Language)
 		cmdInit(decodeArgv(os.Getenv("HOP_INIT_ARGV")))
 		os.Exit(0) // exit before the test runner prints PASS to stdout
 	}
 
 	// run writes configCmd as the [shell] command value, then runs `hop init argv`
-	// in a child against that config. An empty configCmd writes no config at all.
+	// in a child against that config. An empty configCmd writes no [shell] section,
+	// so the daily name falls back to its built-in default.
+	//
+	// The config always pins [ui] language = "en": the assertions below quote the
+	// English catalog wording, so the language has to be chosen by the test rather
+	// than by whatever locale the host happens to carry.
 	run := func(t *testing.T, configCmd string, argv ...string) (stdout, stderr string, code int, configPath string) {
 		t.Helper()
 		configHome := t.TempDir()
 		configPath = filepath.Join(configHome, "hop", "config.toml")
+		if err := os.MkdirAll(filepath.Dir(configPath), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		toml := "[ui]\nlanguage = \"en\"\n"
 		if configCmd != "" {
-			if err := os.MkdirAll(filepath.Dir(configPath), 0o750); err != nil {
-				t.Fatal(err)
-			}
-			toml := "[shell]\ncommand = \"" + configCmd + "\"\n"
-			if err := os.WriteFile(configPath, []byte(toml), 0o600); err != nil {
-				t.Fatal(err)
-			}
+			toml += "[shell]\ncommand = \"" + configCmd + "\"\n"
+		}
+		if err := os.WriteFile(configPath, []byte(toml), 0o600); err != nil {
+			t.Fatal(err)
 		}
 		cmd := exec.Command(os.Args[0], "-test.run=TestCmdInitSubprocess")
 		cmd.Env = []string{

@@ -51,7 +51,7 @@ func cmdInit(args []string) {
 			// A following flag is a missing name, not a malformed one: reject it
 			// here rather than letting it fall through to the name pattern.
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
-				fmt.Fprintln(os.Stderr, "hop: --cmd requires a name")
+				fmt.Fprintln(os.Stderr, i18n.T("cli.init_cmd_no_name"))
 				os.Exit(2)
 			}
 			flagName, fromFlag = args[i+1], true
@@ -59,7 +59,7 @@ func cmdInit(args []string) {
 		case strings.HasPrefix(a, "--cmd="):
 			flagName, fromFlag = strings.TrimPrefix(a, "--cmd="), true
 		case strings.HasPrefix(a, "-"):
-			fmt.Fprintf(os.Stderr, "hop: unknown flag %q\n", a)
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_unknown_flag", a))
 			os.Exit(2)
 		default:
 			shell = a
@@ -72,16 +72,13 @@ func cmdInit(args []string) {
 	if !validCmdName(name) {
 		switch {
 		case !fromFlag:
-			fmt.Fprintf(os.Stderr, "hop: ignoring invalid [shell] command %q in %s, using %q instead\n",
-				name, core.ConfigPath(), defaultCmdName)
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_invalid_config", name, core.ConfigPath(), defaultCmdName))
 			name = defaultCmdName
 		case isShellName(name):
-			fmt.Fprintf(os.Stderr, "hop: --cmd %s is ambiguous: %s is a shell name, not a function name.\n"+
-				"  did you mean  hop init %s  (default name %q), or  hop init %s --cmd NAME ?\n",
-				name, name, name, defaultCmdName, name)
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_cmd_is_shell", name, name, name, defaultCmdName, name))
 			os.Exit(2)
 		default:
-			fmt.Fprintf(os.Stderr, "hop: invalid function name %q (letters, digits, underscore; not starting with a digit)\n", name)
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_invalid_name", name))
 			os.Exit(2)
 		}
 	}
@@ -99,7 +96,7 @@ func cmdInit(args []string) {
 	case "fish":
 		emit(fishIntegration(name))
 	default:
-		fmt.Fprintf(os.Stderr, "hop: unsupported shell %q (zsh, bash, fish)\n", shell)
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_unsupported_shell", shell))
 		os.Exit(2)
 	}
 }

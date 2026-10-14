@@ -167,9 +167,7 @@ func printSetupSummary(idx *core.Index, rc, line string, wired, wroteShell, know
 		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_present", rc))
 	default:
 		if !knownShell {
-			fmt.Fprintf(os.Stderr, "hop does not know the shell in $SHELL (%s), so it cannot wire it for you.\n"+
-				"The zsh line below is only a suggestion: adapt it to your shell's own startup file.\n",
-				os.Getenv("SHELL"))
+			fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_unknown", os.Getenv("SHELL")))
 		}
 		fmt.Fprintln(os.Stderr, i18n.Tf("setup.shell_hint", rc))
 		fmt.Fprintln(os.Stderr, "    "+line)

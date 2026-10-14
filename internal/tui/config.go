@@ -44,7 +44,17 @@ func (f configField) problem() string {
 	}
 	value := strings.TrimSpace(f.value)
 	switch f.id {
-	case "command", "editor":
+	case "command":
+		if value == "" {
+			return i18n.T("config.err.required")
+		}
+		// The same rule as `hop init`: a name the editor took and the integration
+		// refused was saved, then dropped for "p" at the next shell start, with the
+		// warning going to a startup file nobody reads.
+		if !core.ValidCmdName(value) {
+			return i18n.T("config.err.command")
+		}
+	case "editor":
 		if value == "" {
 			return i18n.T("config.err.required")
 		}
@@ -155,7 +165,7 @@ func (m configModel) settings() core.Settings {
 			if f.edited() {
 				s.Scan.Roots = strings.Fields(f.value)
 			}
-		// A value problem rejects never reaches here through a save, so the
+		// A value that problem rejects never reaches here through a save, so the
 		// fallback only serves the model the caller reads before saving.
 		case "max_depth":
 			if n, err := strconv.Atoi(strings.TrimSpace(f.value)); err == nil && n > 0 {

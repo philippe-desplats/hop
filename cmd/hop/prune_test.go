@@ -16,12 +16,12 @@ import (
 // is all it does).
 //
 // `hop scan` used to run the same three prunes as `hop clean` with their errors
-// discarded — `removed, _ := core.PruneFrecency()` — so a frecency table that
+// discarded (`removed, _ := core.PruneFrecency()`), so a frecency table that
 // could no longer be rewritten printed the usual "N projects indexed" summary
 // and exited 0. The user got no signal at all while dead entries kept ranking.
 //
-// Making the prune fail needs care. The ticket's suggestion — chmod 0400 on
-// $XDG_STATE_HOME/hop — is not usable for scan: SaveIndex writes index.json
+// Making the prune fail needs care. The obvious approach, chmod 0400 on
+// $XDG_STATE_HOME/hop, is not usable for scan: SaveIndex writes index.json
 // into that same directory first and calls fatal, so the run never reaches the
 // prune. What this test does instead is leave the directory writable and put a
 // *directory* where the prune's lock file belongs: store.acquire opens it with

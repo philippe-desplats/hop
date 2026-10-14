@@ -107,8 +107,60 @@ func TestSaveSettingsEscapesCustomActionStrings(t *testing.T) {
 	}
 }
 
+// TestSaveSettingsEscapesControlCharacters pins the save as TOML rather than as
+// Go source. Go's %q spells BEL, VT and ESC as \a, \v and \x1b, none of which
+// TOML defines, so a decoder refuses the whole file: LoadSettings then falls
+// back to the defaults and the next save overwrites what the user wrote.
+func TestSaveSettingsEscapesControlCharacters(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	s := DefaultSettings()
+	s.Actions.Custom = []CustomAction{{
+		Key:     "y",
+		Label:   "bell \x07 vt \x0b esc \x1b",
+		Command: "run \x1b[1m{path}\x1b[0m",
+	}}
+	if err := SaveSettings(s); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadSettings().Actions.Custom
+	if len(got) != 1 || got[0] != s.Actions.Custom[0] {
+		t.Errorf("custom action round-trip = %+v, want %+v", got, s.Actions.Custom)
+	}
+}
+
+// TestSaveSettingsRefusesInvalidUTF8 covers the input TOML cannot represent at
+// all. Writing it would produce a file no decoder can read, so the save fails
+// and whatever the user already had on disk stays there.
+func TestSaveSettingsRefusesInvalidUTF8(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := SaveSettings(DefaultSettings()); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := DefaultSettings()
+	s.Actions.Custom = []CustomAction{{Key: "y", Label: "bad \xff\xfe", Command: "run {path}"}}
+	if err := SaveSettings(s); err == nil {
+		t.Error("SaveSettings accepted a label that is not valid UTF-8")
+	}
+
+	after, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Error("a refused save rewrote the existing config file")
+	}
+}
+
 func TestRenderConfigCommentsOutUnsetActionExamples(t *testing.T) {
-	def := renderConfig(DefaultSettings())
+	def, err := renderConfig(DefaultSettings())
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, want := range []string{"# multiplexer = \"auto\"", "# [[actions.custom]]"} {
 		if !strings.Contains(def, want) {
 			t.Errorf("default config lost the example line %q", want)
@@ -118,7 +170,10 @@ func TestRenderConfigCommentsOutUnsetActionExamples(t *testing.T) {
 	s := DefaultSettings()
 	s.Actions.Multiplexer = "tmux"
 	s.Actions.Custom = []CustomAction{{Key: "y", Command: "cursor {path}"}}
-	set := renderConfig(s)
+	set, err := renderConfig(s)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, unwanted := range []string{"# multiplexer = ", "# [[actions.custom]]", "# key = "} {
 		if strings.Contains(set, unwanted) {
 			t.Errorf("config with values kept the example line %q", unwanted)

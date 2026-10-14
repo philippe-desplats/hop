@@ -419,7 +419,7 @@ func sanitize(s string) string {
 const rowGutter = 4
 
 // fit shortens s to w terminal columns, eliding the middle with an ellipsis so
-// the trailing project name — the part the user reads — survives. The Hub
+// the trailing project name, the part the user reads, survives. The Hub
 // writes exactly one line per row and budgets its viewport that way, while
 // lipgloss treats a style width as a wrap width: without this, a deep path
 // wraps onto a second full-width bar, rows below it shift as the cursor moves,

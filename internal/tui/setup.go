@@ -225,7 +225,7 @@ func (m setupModel) advance() (tea.Model, tea.Cmd) {
 // back returns to the previous step. Every step records its choice in a field
 // of its own, so stepping back is only a step: nothing is discarded, and the
 // step comes up on the choice it already holds. The first step has nothing
-// behind it, where the key does nothing — cancelling the wizard on a key meant
+// behind it, where the key does nothing: cancelling the wizard on a key meant
 // to undo one step would throw away the answers the user came to correct.
 func (m setupModel) back() (tea.Model, tea.Cmd) {
 	if m.step <= stepRoots {
@@ -377,8 +377,8 @@ func (m setupModel) viewConfirm(b *strings.Builder) {
 
 // ErrNoTTY reports that hop found no controlling terminal, so nothing was ever
 // drawn and the user was never asked anything. It is the one failure a caller
-// may answer on the user's behalf — by printing, or by a non-interactive preset
-// — which is exactly why it has to be told apart from a failure that happened
+// may answer on the user's behalf, by printing or by a non-interactive preset,
+// which is exactly why it has to be told apart from a failure that happened
 // once the screen was up and the user had started answering.
 var ErrNoTTY = errors.New("no controlling terminal")
 

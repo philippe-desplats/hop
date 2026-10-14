@@ -28,7 +28,7 @@ func cmdScan(_ []string) {
 	}
 	fmt.Fprintln(os.Stderr, i18n.Tf("cli.scan_summary", len(idx.Projects), len(cats)))
 	// A prune failure is a warning here, not fatal: the scan is what the user
-	// asked for and it succeeded. But it is never silent either — a frecency
+	// asked for and it succeeded. But it is never silent either: a frecency
 	// table that can no longer be rewritten keeps ranking dead entries, and the
 	// user has to hear about it to go and fix the permissions.
 	pruned, err := pruneDeadPaths()
@@ -165,8 +165,8 @@ func cmdImport(args []string) {
 		case a == "--dry-run":
 			dryRun = true
 		// A --from without a value is a usage error, like `hop init --cmd`:
-		// swallowing it would run a committed import — writing extras.json and
-		// frecency.json — on a `hop import --from zoxide --dry-run` the user lost
+		// swallowing it would run a committed import, writing extras.json and
+		// frecency.json, on a `hop import --from zoxide --dry-run` the user lost
 		// the tail of, with nothing to tell it apart from the intended one.
 		case a == "--from":
 			if i+1 >= len(args) {
@@ -465,7 +465,7 @@ func cmdAdd(args []string) {
 		return // never index a path that could break the shell protocol
 	}
 	if !core.UnderRoots(p, cfg.Roots) && !isTracked(p) {
-		return // only learn paths the index can hold: a root, or a tracked folder
+		return // only learn paths under a configured root, or tracked folders
 	}
 	_, _ = core.AddFrecency(p, time.Now(), false) // try-lock, best effort
 }
@@ -475,8 +475,8 @@ func cmdAdd(args []string) {
 // earn frecency, or it would sort last among its matches forever.
 //
 // It reads extras.json, so cmdAdd only consults it once the roots test has
-// already failed: the shell hook calls `hop add` on every cd and the common case
-// — a path under a root — must stay the in-memory check it was.
+// already failed: the shell hook calls `hop add` on every cd and the common
+// case, a path under a root, must stay the in-memory check it was.
 func isTracked(p string) bool {
 	for _, x := range core.LoadExtras().Paths {
 		if x == p {
@@ -569,8 +569,9 @@ func cmdConfig(_ []string) {
 // editor shows them, under the path of the file holding them. It is what a user
 // without a terminal gets instead of the editor, so printing one field would
 // leave them knowing nothing about their editor, their roots or their language.
-// The values are rendered as the TOML they came from, so a line can be pasted
-// straight back into config.toml.
+// The values are printed quoted, close to how the file holds them, but the
+// output carries no section headers, so a line is not a config.toml fragment on
+// its own: it belongs under the right section, which the reader has to supply.
 func printSettings(s core.Settings) {
 	fmt.Println(core.ConfigPath())
 	fmt.Printf("command = %q\n", s.Shell.Command)

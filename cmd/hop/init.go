@@ -3,35 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/philippe-desplats/hop/internal/core"
 	"github.com/philippe-desplats/hop/internal/i18n"
 )
-
-var cmdNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
-// defaultCmdName is the daily function name used when nothing valid overrides it.
-const defaultCmdName = "p"
-
-// supportedShells are the shells hop init can emit an integration for.
-var supportedShells = []string{"zsh", "bash", "fish"}
-
-// isShellName reports whether name is one of the shells hop init knows. Such a
-// name is refused as a function name: the integration would shadow the shell's
-// own binary, so typing `zsh` would run hop nav instead of starting a subshell.
-func isShellName(name string) bool {
-	return slices.Contains(supportedShells, name)
-}
-
-// validCmdName reports whether name is usable as the daily shell function name.
-// The pattern is deliberately tight: the name is interpolated into the three
-// integration templates, so anything outside it could inject shell syntax.
-func validCmdName(name string) bool {
-	return cmdNameRe.MatchString(name) && !isShellName(name)
-}
 
 // cmdInit prints the shell integration. The daily function name defaults to "p"
 // and is overridable with --cmd NAME (or --cmd=NAME).
@@ -69,13 +45,13 @@ func cmdInit(args []string) {
 	if !fromFlag {
 		name = core.LoadSettings().Shell.Command
 	}
-	if !validCmdName(name) {
+	if !core.ValidCmdName(name) {
 		switch {
 		case !fromFlag:
-			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_invalid_config", name, core.ConfigPath(), defaultCmdName))
-			name = defaultCmdName
-		case isShellName(name):
-			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_cmd_is_shell", name, name, name, defaultCmdName, name))
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_invalid_config", name, core.ConfigPath(), core.DefaultCmdName))
+			name = core.DefaultCmdName
+		case core.IsShellName(name):
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_cmd_is_shell", name, name, name, core.DefaultCmdName, name))
 			os.Exit(2)
 		default:
 			fmt.Fprintln(os.Stderr, i18n.Tf("cli.init_invalid_name", name))

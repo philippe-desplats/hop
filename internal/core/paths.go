@@ -24,7 +24,7 @@ func HasControlChars(s string) bool {
 }
 
 // ExpandHome resolves a leading ~ to the user's home directory. It is exported
-// because the CLI expands the same tildes as the config does — `hop track ~/x`
+// because the CLI expands the same tildes as the config does: `hop track ~/x`
 // and `roots = ["~/x"]` have to land on the same path, which a second copy of
 // this function cannot guarantee past its next edit.
 func ExpandHome(p string) string {

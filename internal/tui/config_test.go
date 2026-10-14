@@ -164,7 +164,7 @@ func TestConfigCyclingLanguageReachesEveryShippedLanguage(t *testing.T) {
 }
 
 // Update takes a value receiver, so a keystroke must land in the model it
-// returns and nowhere else — the caller's copy included.
+// returns and nowhere else, the caller's copy included.
 func TestConfigUpdateLeavesTheCallersModelAlone(t *testing.T) {
 	m0 := newConfigModel(core.DefaultSettings()) // cursor on "command", value "p"
 	edited := typeRunes(m0, "XYZ")
@@ -272,6 +272,39 @@ func TestConfigRefusesSavesItCannotHonour(t *testing.T) {
 			}
 			if !tc.wantSaved && cmd != nil {
 				t.Error("a refusal must leave the editor open so the value can be fixed")
+			}
+		})
+	}
+}
+
+// The editor used to accept any non-empty command name, while `hop init`
+// refuses anything outside ^[A-Za-z_][A-Za-z0-9_]*$ and refuses a shell's own
+// name. A name the editor took was therefore saved and then dropped for "p" at
+// the next shell start, with the warning going to a file nobody reads.
+func TestConfigRefusesCommandNamesTheShellIntegrationCannotUse(t *testing.T) {
+	i18n.SetLanguage("en")
+	cases := []struct {
+		typed     string
+		wantSaved bool
+	}{
+		{"my-p", false}, // a dash would not parse as a function name
+		{"2p", false},   // a leading digit, same
+		{"p q", false},  // a space, same
+		{"zsh", false},  // would shadow the shell's own binary
+		{"fish", false}, // same
+		{"p", true},
+		{"j_2", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.typed, func(t *testing.T) {
+			var m tea.Model = newConfigModel(core.DefaultSettings())
+			m = focusField(t, m, "command")
+			m = clearField(t, m)
+			m = typeRunes(m, tc.typed)
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+			if got := m.(configModel).saved; got != tc.wantSaved {
+				t.Errorf("command = %q: saved = %v, want %v", tc.typed, got, tc.wantSaved)
 			}
 		})
 	}

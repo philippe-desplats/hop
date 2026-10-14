@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
 )
@@ -162,10 +163,82 @@ const actionExamples = `# Multiplexeur de l'action "t" : "auto" (tmux sinon zell
 # in_terminal = false        # false : lancé détaché (GUI) ; true : exécuté dans le shell après le cd
 `
 
+// tomlString renders v as a TOML basic string, quotes included. It is the one
+// place the config writer escapes a string: Go's %q is Go escaping, so a label
+// holding BEL, VT or ESC came out as \a, \v or \x1b, three escapes TOML does not
+// define. The decoder then refused the whole file, LoadSettings fell back to the
+// defaults, and the next save overwrote what the user had written.
+//
+// TOML text is UTF-8, so a value that is not valid UTF-8 has no representation
+// here and returns an error rather than a file nothing can read back.
+func tomlString(v string) (string, error) {
+	if !utf8.ValidString(v) {
+		return "", fmt.Errorf("cannot write %q to TOML: not valid UTF-8", v)
+	}
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range v {
+		switch r {
+		case '"':
+			b.WriteString(`\"`)
+		case '\\':
+			b.WriteString(`\\`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\t':
+			b.WriteString(`\t`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\f':
+			b.WriteString(`\f`)
+		case '\r':
+			b.WriteString(`\r`)
+		default:
+			// TOML allows any character but the quote, the backslash, and the
+			// control characters, tab excepted. The rest go to \uXXXX.
+			if r < 0x20 || r == 0x7f {
+				fmt.Fprintf(&b, `\u%04X`, r)
+				continue
+			}
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('"')
+	return b.String(), nil
+}
+
+// tomlEncoder escapes the strings of one rendered config, keeping the first
+// value it could not write. The renderers stay simple format calls that way:
+// they substitute enc.str everywhere they used %q, and the caller tests err
+// once instead of at every field.
+type tomlEncoder struct{ err error }
+
+// str returns v as a TOML basic string, or an empty string when v cannot be
+// written. The placeholder never reaches a file: renderConfig returns err.
+func (e *tomlEncoder) str(v string) string {
+	q, err := tomlString(v)
+	if err != nil {
+		if e.err == nil {
+			e.err = err
+		}
+		return `""`
+	}
+	return q
+}
+
+// list returns items as a TOML array of basic strings.
+func (e *tomlEncoder) list(items []string) string {
+	out := make([]string, len(items))
+	for i, it := range items {
+		out[i] = e.str(it)
+	}
+	return "[" + strings.Join(out, ", ") + "]"
+}
+
 // renderActions serialises the part of [actions] the editor does not expose:
 // the multiplexer and the custom action blocks. The returned text ends with a
 // blank line, so it drops into the template just above [scan].
-func renderActions(a ActionsSettings) string {
+func renderActions(a ActionsSettings, enc *tomlEncoder) string {
 	if a.Multiplexer == "" && len(a.Custom) == 0 {
 		return actionExamples + "\n"
 	}
@@ -173,7 +246,7 @@ func renderActions(a ActionsSettings) string {
 	if a.Multiplexer != "" {
 		b.WriteString(`# Multiplexeur de l'action "t" : "auto" (tmux sinon zellij), "tmux", "zellij" ou "off".` + "\n")
 		b.WriteString("# Prend le pas sur show_tmux quand il est défini.\n")
-		fmt.Fprintf(&b, "multiplexer = %q\n", a.Multiplexer)
+		fmt.Fprintf(&b, "multiplexer = %s\n", enc.str(a.Multiplexer))
 	}
 	if len(a.Custom) > 0 {
 		b.WriteString("\n# Actions personnalisées : chaque bloc ajoute une touche au menu.\n")
@@ -182,9 +255,9 @@ func renderActions(a ActionsSettings) string {
 				b.WriteString("\n")
 			}
 			b.WriteString("[[actions.custom]]\n")
-			fmt.Fprintf(&b, "key = %q\n", c.Key)
-			fmt.Fprintf(&b, "label = %q\n", c.Label)
-			fmt.Fprintf(&b, "command = %q\n", c.Command)
+			fmt.Fprintf(&b, "key = %s\n", enc.str(c.Key))
+			fmt.Fprintf(&b, "label = %s\n", enc.str(c.Label))
+			fmt.Fprintf(&b, "command = %s\n", enc.str(c.Command))
 			fmt.Fprintf(&b, "needs_git = %t\n", c.NeedsGit)
 			fmt.Fprintf(&b, "in_terminal = %t\n", c.InTerminal)
 		}
@@ -193,41 +266,37 @@ func renderActions(a ActionsSettings) string {
 	return b.String()
 }
 
-// renderConfig serialises settings to commented TOML.
-func renderConfig(s Settings) string {
-	quote := func(items []string) string {
-		out := make([]string, len(items))
-		for i, it := range items {
-			out[i] = fmt.Sprintf("%q", it)
-		}
-		return "[" + strings.Join(out, ", ") + "]"
-	}
-	return fmt.Sprintf(`# hop configuration
+// renderConfig serialises settings to commented TOML. It returns an error when
+// a value cannot be written as TOML, so the caller never puts on disk a file it
+// could not read back.
+func renderConfig(s Settings) (string, error) {
+	enc := &tomlEncoder{}
+	out := fmt.Sprintf(`# hop configuration
 
 [ui]
 # Langue de l'interface : "auto" (selon $LANG), ou "en" / "fr" / "es" / "pt".
-language = %q
+language = %s
 # Thème : "auto" (détecte le fond du terminal), ou "light" / "dark".
-theme = %q
+theme = %s
 
 [ai]
 # Assistant IA des touches c/r : "auto" (premier installé), ou "claude" / "codex" / "aider" / "gemini".
-tool = %q
+tool = %s
 
 [shell]
 # Nom de la fonction shell quotidienne (le raccourci qui fait le cd).
-command = %q
+command = %s
 
 [hub]
 # Accès aux actions du Hub :
 #   "tab"   = filtre pur, Tab ouvre le menu d'actions (défaut)
 #   "shift" = comme tab, plus des raccourcis en MAJUSCULE directs depuis la liste
 #   "enter" = Entrée ouvre le menu d'actions au lieu d'un cd direct
-action_access = %q
+action_access = %s
 
 [actions]
 # Commande de l'action "ouvrir dans l'éditeur".
-editor = %q
+editor = %s
 # Afficher l'action "session tmux" dans le menu (hérité).
 show_tmux = %t
 %s[scan]
@@ -245,20 +314,31 @@ w_fuzzy = %g
 w_frecency = %g
 min_margin = %g
 `,
-		s.UI.Language, s.UI.Theme, s.AI.Tool, s.Shell.Command, s.Hub.ActionAccess, s.Actions.Editor, s.Actions.ShowTmux,
-		renderActions(s.Actions),
-		quote(s.Scan.Roots), s.Scan.MaxDepth, quote(s.Scan.Ignore), s.Scan.Worktrees,
+		enc.str(s.UI.Language), enc.str(s.UI.Theme), enc.str(s.AI.Tool), enc.str(s.Shell.Command),
+		enc.str(s.Hub.ActionAccess), enc.str(s.Actions.Editor), s.Actions.ShowTmux,
+		renderActions(s.Actions, enc),
+		enc.list(s.Scan.Roots), s.Scan.MaxDepth, enc.list(s.Scan.Ignore), s.Scan.Worktrees,
 		s.Resolver.WFuzzy, s.Resolver.WFrecency, s.Resolver.MinMargin)
+	if enc.err != nil {
+		return "", enc.err
+	}
+	return out, nil
 }
 
-// SaveSettings writes settings atomically (temp file + rename).
+// SaveSettings writes settings atomically (temp file + rename). Rendering comes
+// first, so a value TOML cannot hold fails the save and leaves the file the user
+// already had in place.
 func SaveSettings(s Settings) error {
+	data, err := renderConfig(s)
+	if err != nil {
+		return err
+	}
 	path := ConfigPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(renderConfig(s)), 0o600); err != nil {
+	if err := os.WriteFile(tmp, []byte(data), 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)

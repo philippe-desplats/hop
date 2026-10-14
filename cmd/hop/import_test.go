@@ -76,9 +76,9 @@ func TestCmdImportSubprocess(t *testing.T) {
 		}
 	})
 
-	// A truncated `hop import --from zoxide --dry-run` — a clipped paste, an
-	// edited shell history line — used to swallow the valueless --from and run a
-	// committed import, indistinguishable from the intended one.
+	// A truncated `hop import --from zoxide --dry-run`, from a clipped paste or
+	// an edited shell history line, used to swallow the valueless --from and run
+	// a committed import, indistinguishable from the intended one.
 	t.Run("--from with no value is refused", func(t *testing.T) {
 		for _, arg := range []string{"--from", "--from="} {
 			t.Run(arg, func(t *testing.T) {

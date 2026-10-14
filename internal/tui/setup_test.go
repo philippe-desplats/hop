@@ -50,7 +50,7 @@ func TestNewSetupModelPreselectsReposAndDefaults(t *testing.T) {
 // A re-run of the wizard must come up on the editor and the assistant the user
 // already configured. settings() writes back whatever is preselected, so coming
 // up on the first detected editor and on "auto" replaces chosen values with
-// detected ones — and README documents re-running setup as supported.
+// detected ones, and README documents re-running setup as supported.
 func TestNewSetupModelPreselectsTheConfiguredEditorAndAssistant(t *testing.T) {
 	base := core.DefaultSettings()
 	base.Actions.Editor, base.AI.Tool = "nvim", "codex"
@@ -89,11 +89,11 @@ func TestNewSetupModelFirstRunTakesTheFirstDetectedEditor(t *testing.T) {
 	}
 }
 
-// A configured editor the wizard cannot offer — not on PATH, so not detected —
-// cannot be preselected: the cursor lands on the first offered editor, and
-// confirming the step replaces the configured binary with that one. The step
-// shows the replacement, which is the only thing standing between the user and
-// losing the value; this test pins the fallback, not an endorsement of it.
+// A configured editor the wizard cannot offer, being absent from PATH and so
+// undetected, cannot be preselected: the cursor lands on the first offered
+// editor, and confirming the step replaces the configured binary with it. The
+// step shows the replacement, which is the only thing standing between the user
+// and losing the value; this test pins the fallback, not an endorsement of it.
 func TestNewSetupModelFallsBackWhenTheConfiguredEditorIsNotDetected(t *testing.T) {
 	base := core.DefaultSettings()
 	base.Actions.Editor = "emacs"
@@ -206,8 +206,8 @@ func setupWalkInput() SetupInput {
 }
 
 // Leaving a step used to be one-way: no key decremented the step, so a user who
-// noticed a wrong folder from the editor step could only press esc — abandoning
-// the whole wizard — and run `hop setup` again.
+// noticed a wrong folder from the editor step could only press esc, abandoning
+// the whole wizard, and run `hop setup` again.
 func TestSetupStepsBackToThePreviousStep(t *testing.T) {
 	for _, key := range []tea.KeyType{tea.KeyLeft, tea.KeyShiftTab} {
 		t.Run(tea.KeyMsg{Type: key}.String(), func(t *testing.T) {
@@ -293,7 +293,7 @@ func TestSetupEscCancelsAfterAStepBack(t *testing.T) {
 
 // The checkbox rows of the roots step and the radio rows of the single-select
 // steps mark the cursor row the same way, and now from one helper. This guard
-// proves nothing about that refactor — it passes either side of it. It is here
+// proves nothing about that refactor: it passes either side of it. It is here
 // to fail the day one of the two row kinds is changed without the other, which
 // is how the wizard's two halves would come to highlight differently.
 func TestSetupCursorRowIsMarkedTheSameOnBothRowKinds(t *testing.T) {

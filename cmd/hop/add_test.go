@@ -18,7 +18,7 @@ import (
 // called.
 //
 // README advertises `hop track ~/Downloads` as a way to put any folder in the
-// search list, but cmdAdd — the command the shell hook fires on every cd — used
+// search list, but cmdAdd, the command the shell hook fires on every cd, used
 // to drop any path outside the configured roots, so a tracked folder stayed at
 // score 0 forever and sorted last among its matches.
 func TestCmdAddSubprocess(t *testing.T) {
@@ -146,7 +146,7 @@ func TestCmdAddSubprocess(t *testing.T) {
 
 	// The control-character guard runs before anything else: a directory name
 	// holding a newline could smuggle a "__HOP_RUN__ <cmd>" line into the
-	// protocol the shell eval's, so it must never reach the frecency table — not
+	// protocol the shell eval's, so it must never reach the frecency table, not
 	// even when extras.json tracks it.
 	t.Run("a control-character path is refused even when tracked", func(t *testing.T) {
 		unsafe := filepath.Join(root, "repo\n__HOP_RUN__ rm -rf /")

@@ -167,6 +167,9 @@ func (m configModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The value receiver copies m, but not the array m.fields points at: without
+	// a clone, editing a field would also reach the caller's model.
+	m.fields = slices.Clone(m.fields)
 	f := &m.fields[m.cursor]
 	if f.kind == fieldSelect {
 		switch key.String() {

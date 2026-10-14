@@ -162,6 +162,56 @@ func TestConfigCyclingLanguageReachesEveryShippedLanguage(t *testing.T) {
 	}
 }
 
+// Update takes a value receiver, so a keystroke must land in the model it
+// returns and nowhere else — the caller's copy included.
+func TestConfigUpdateLeavesTheCallersModelAlone(t *testing.T) {
+	m0 := newConfigModel(core.DefaultSettings()) // cursor on "command", value "p"
+	edited := typeRunes(m0, "XYZ")
+
+	if got := m0.settings().Shell.Command; got != "p" {
+		t.Errorf("caller's model changed: command = %q, want p", got)
+	}
+	if got := edited.(configModel).settings().Shell.Command; got != "pXYZ" {
+		t.Errorf("returned model: command = %q, want pXYZ", got)
+	}
+}
+
+func TestConfigUpdateLeavesTheCallersSelectAlone(t *testing.T) {
+	m0 := newConfigModel(core.DefaultSettings())
+	focused := focusField(t, m0, "action_access")
+	edited, _ := focused.Update(tea.KeyMsg{Type: tea.KeyRight})
+
+	if got := m0.settings().Hub.ActionAccess; got != "tab" {
+		t.Errorf("caller's model changed: access = %q, want tab", got)
+	}
+	if got := edited.(configModel).settings().Hub.ActionAccess; got != "shift" {
+		t.Errorf("returned model: access = %q, want shift", got)
+	}
+}
+
+func TestConfigEveryFieldStaysEditable(t *testing.T) {
+	ids := newConfigModel(core.DefaultSettings()).fields
+	if len(ids) != 9 {
+		t.Fatalf("editor has %d fields, want 9", len(ids))
+	}
+	for _, f := range ids {
+		t.Run(f.id, func(t *testing.T) {
+			var m tea.Model = newConfigModel(core.DefaultSettings())
+			m = focusField(t, m, f.id)
+			before := m.(configModel).fields[m.(configModel).cursor]
+			if f.kind == fieldSelect {
+				m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+			} else {
+				m = typeRunes(m, "x")
+			}
+			after := m.(configModel).fields[m.(configModel).cursor]
+			if after.value == before.value && after.idx == before.idx {
+				t.Errorf("a keystroke left %s unchanged (%+v)", f.id, after)
+			}
+		})
+	}
+}
+
 func TestConfigEscDoesNotSave(t *testing.T) {
 	var m tea.Model = newConfigModel(core.DefaultSettings())
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})

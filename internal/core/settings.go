@@ -147,6 +147,52 @@ func LoadSettings() Settings {
 	return s
 }
 
+// actionExamples documents multiplexer and [[actions.custom]] in a file that
+// sets neither. Once either is set, renderActions emits the real values in its
+// place, so a save never turns a user's action into an example.
+const actionExamples = `# Multiplexeur de l'action "t" : "auto" (tmux sinon zellij), "tmux", "zellij" ou "off".
+# Prend le pas sur show_tmux quand il est défini ; décommente pour choisir explicitement.
+# multiplexer = "auto"
+# Actions personnalisées (optionnel) : chaque bloc ajoute une touche au menu.
+# [[actions.custom]]
+# key = "y"                  # une lettre, hors touches natives (z c r g o f t)
+# label = "ouvrir dans Cursor"
+# command = "cursor {path}"  # {path} et {name} sont substitués
+# needs_git = false
+# in_terminal = false        # false : lancé détaché (GUI) ; true : exécuté dans le shell après le cd
+`
+
+// renderActions serialises the part of [actions] the editor does not expose:
+// the multiplexer and the custom action blocks. The returned text ends with a
+// blank line, so it drops into the template just above [scan].
+func renderActions(a ActionsSettings) string {
+	if a.Multiplexer == "" && len(a.Custom) == 0 {
+		return actionExamples + "\n"
+	}
+	var b strings.Builder
+	if a.Multiplexer != "" {
+		b.WriteString(`# Multiplexeur de l'action "t" : "auto" (tmux sinon zellij), "tmux", "zellij" ou "off".` + "\n")
+		b.WriteString("# Prend le pas sur show_tmux quand il est défini.\n")
+		fmt.Fprintf(&b, "multiplexer = %q\n", a.Multiplexer)
+	}
+	if len(a.Custom) > 0 {
+		b.WriteString("\n# Actions personnalisées : chaque bloc ajoute une touche au menu.\n")
+		for i, c := range a.Custom {
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString("[[actions.custom]]\n")
+			fmt.Fprintf(&b, "key = %q\n", c.Key)
+			fmt.Fprintf(&b, "label = %q\n", c.Label)
+			fmt.Fprintf(&b, "command = %q\n", c.Command)
+			fmt.Fprintf(&b, "needs_git = %t\n", c.NeedsGit)
+			fmt.Fprintf(&b, "in_terminal = %t\n", c.InTerminal)
+		}
+	}
+	b.WriteString("\n")
+	return b.String()
+}
+
 // renderConfig serialises settings to commented TOML.
 func renderConfig(s Settings) string {
 	quote := func(items []string) string {
@@ -184,18 +230,7 @@ action_access = %q
 editor = %q
 # Afficher l'action "session tmux" dans le menu (hérité).
 show_tmux = %t
-# Multiplexeur de l'action "t" : "auto" (tmux sinon zellij), "tmux", "zellij" ou "off".
-# Prend le pas sur show_tmux quand il est défini ; décommente pour choisir explicitement.
-# multiplexer = "auto"
-# Actions personnalisées (optionnel) : chaque bloc ajoute une touche au menu.
-# [[actions.custom]]
-# key = "y"                  # une lettre, hors touches natives (z c r g o f t)
-# label = "ouvrir dans Cursor"
-# command = "cursor {path}"  # {path} et {name} sont substitués
-# needs_git = false
-# in_terminal = false        # false : lancé détaché (GUI) ; true : exécuté dans le shell après le cd
-
-[scan]
+%s[scan]
 # Où chercher les projets, profondeur max, et dossiers ignorés.
 roots = %s
 max_depth = %d
@@ -211,6 +246,7 @@ w_frecency = %g
 min_margin = %g
 `,
 		s.UI.Language, s.UI.Theme, s.AI.Tool, s.Shell.Command, s.Hub.ActionAccess, s.Actions.Editor, s.Actions.ShowTmux,
+		renderActions(s.Actions),
 		quote(s.Scan.Roots), s.Scan.MaxDepth, quote(s.Scan.Ignore), s.Scan.Worktrees,
 		s.Resolver.WFuzzy, s.Resolver.WFrecency, s.Resolver.MinMargin)
 }

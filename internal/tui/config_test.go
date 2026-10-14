@@ -34,6 +34,22 @@ func TestConfigEditTextField(t *testing.T) {
 	}
 }
 
+// The editor shows neither the multiplexer nor the custom actions, so settings
+// must hand them back exactly as it got them.
+func TestConfigKeepsUnexposedActionSettings(t *testing.T) {
+	s := core.DefaultSettings()
+	s.Actions.Multiplexer = "zellij"
+	s.Actions.Custom = []core.CustomAction{{Key: "y", Label: "open in Cursor", Command: "cursor {path}"}}
+
+	got := newConfigModel(s).settings()
+	if got.Actions.Multiplexer != "zellij" {
+		t.Errorf("multiplexer = %q, want zellij", got.Actions.Multiplexer)
+	}
+	if len(got.Actions.Custom) != 1 || got.Actions.Custom[0] != s.Actions.Custom[0] {
+		t.Errorf("custom actions = %+v, want %+v", got.Actions.Custom, s.Actions.Custom)
+	}
+}
+
 func TestConfigEscDoesNotSave(t *testing.T) {
 	var m tea.Model = newConfigModel(core.DefaultSettings())
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})

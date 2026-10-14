@@ -27,7 +27,10 @@ type configField struct {
 }
 
 type configModel struct {
-	base   core.Settings // loaded settings, so fields not in the editor survive a save
+	// base is the settings as loaded, so the Settings fields the editor does not
+	// expose keep their value through a save. Keys and comments that Settings
+	// does not model are not preserved: a save re-renders the whole file.
+	base   core.Settings
 	fields []configField
 	cursor int
 	saved  bool
@@ -76,8 +79,9 @@ func newConfigModel(s core.Settings) configModel {
 	}
 }
 
-// settings rebuilds Settings from the current field values, preserving any
-// settings the editor does not expose (e.g. [resolver]).
+// settings rebuilds Settings from the current field values on top of base, so
+// the settings the editor does not expose (e.g. [resolver], [[actions.custom]])
+// keep the value they were loaded with.
 func (m configModel) settings() core.Settings {
 	s := m.base
 	for _, f := range m.fields {

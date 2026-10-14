@@ -55,6 +55,82 @@ func TestSettingsLoad(t *testing.T) {
 	}
 }
 
+func TestSaveSettingsKeepsMultiplexerAndCustomActions(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if _, err := EnsureConfig(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := "[actions]\n" +
+		"multiplexer = \"zellij\"\n\n" +
+		"[[actions.custom]]\n" +
+		"key = \"y\"\n" +
+		"label = \"open in Cursor\"\n" +
+		"command = \"cursor {path}\"\n" +
+		"needs_git = true\n" +
+		"in_terminal = true\n"
+	if err := os.WriteFile(ConfigPath(), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// A save that changes nothing must not drop what the editor never showed.
+	if err := SaveSettings(LoadSettings()); err != nil {
+		t.Fatal(err)
+	}
+
+	s := LoadSettings()
+	if s.Actions.Multiplexer != "zellij" {
+		t.Errorf("multiplexer = %q, want zellij", s.Actions.Multiplexer)
+	}
+	if len(s.Actions.Custom) != 1 {
+		t.Fatalf("custom actions = %d, want 1", len(s.Actions.Custom))
+	}
+	want := CustomAction{Key: "y", Label: "open in Cursor", Command: "cursor {path}", NeedsGit: true, InTerminal: true}
+	if s.Actions.Custom[0] != want {
+		t.Errorf("custom action = %+v, want %+v", s.Actions.Custom[0], want)
+	}
+}
+
+func TestSaveSettingsEscapesCustomActionStrings(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	s := DefaultSettings()
+	s.Actions.Custom = []CustomAction{{
+		Key:     "y",
+		Label:   `say "hi"`,
+		Command: `run --flag="a b" C:\tools\x`,
+	}}
+	if err := SaveSettings(s); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadSettings().Actions.Custom
+	if len(got) != 1 || got[0] != s.Actions.Custom[0] {
+		t.Errorf("custom action round-trip = %+v, want %+v", got, s.Actions.Custom)
+	}
+}
+
+func TestRenderConfigCommentsOutUnsetActionExamples(t *testing.T) {
+	def := renderConfig(DefaultSettings())
+	for _, want := range []string{"# multiplexer = \"auto\"", "# [[actions.custom]]"} {
+		if !strings.Contains(def, want) {
+			t.Errorf("default config lost the example line %q", want)
+		}
+	}
+
+	s := DefaultSettings()
+	s.Actions.Multiplexer = "tmux"
+	s.Actions.Custom = []CustomAction{{Key: "y", Command: "cursor {path}"}}
+	set := renderConfig(s)
+	for _, unwanted := range []string{"# multiplexer = ", "# [[actions.custom]]", "# key = "} {
+		if strings.Contains(set, unwanted) {
+			t.Errorf("config with values kept the example line %q", unwanted)
+		}
+	}
+	for _, want := range []string{"multiplexer = \"tmux\"", "[[actions.custom]]\nkey = \"y\""} {
+		if !strings.Contains(set, want) {
+			t.Errorf("rendered config missing %q", want)
+		}
+	}
+}
+
 func TestSettingsAIAndCustom(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 

@@ -122,6 +122,7 @@ var catalog = map[Lang]map[string]string{
 		"cli.doctor.root":           "root",
 		"cli.doctor.bin":            "binary",
 		"cli.doctor.index_missing":  "MISSING (run `hop scan`)",
+		"cli.unknown_command":       "hop: unknown command %q (try `hop help`)",
 		"cli.help": `hop · project switcher
 
 Usage:
@@ -267,6 +268,7 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
 		"cli.doctor.root":           "racine",
 		"cli.doctor.bin":            "binaire",
 		"cli.doctor.index_missing":  "ABSENT (lance `hop scan`)",
+		"cli.unknown_command":       "hop: commande inconnue %q (essaie `hop help`)",
 		"cli.help": `hop · commutateur de projets
 
 Usage:
@@ -412,6 +414,7 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
 		"cli.doctor.root":           "raíz",
 		"cli.doctor.bin":            "binario",
 		"cli.doctor.index_missing":  "AUSENTE (ejecuta `hop scan`)",
+		"cli.unknown_command":       "hop: comando desconocido %q (prueba `hop help`)",
 		"cli.help": `hop · conmutador de proyectos
 
 Uso:
@@ -557,6 +560,7 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
 		"cli.doctor.root":           "raiz",
 		"cli.doctor.bin":            "binário",
 		"cli.doctor.index_missing":  "AUSENTE (execute `hop scan`)",
+		"cli.unknown_command":       "hop: comando desconhecido %q (tente `hop help`)",
 		"cli.help": `hop · alternador de projetos
 
 Uso:

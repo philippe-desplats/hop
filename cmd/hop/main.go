@@ -59,7 +59,7 @@ func main() {
 	case "help", "--help", "-h":
 		printHelp()
 	default:
-		fmt.Fprintf(os.Stderr, "hop: commande inconnue %q (essaie `hop help`)\n", args[0])
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.unknown_command", args[0]))
 		os.Exit(2)
 	}
 }

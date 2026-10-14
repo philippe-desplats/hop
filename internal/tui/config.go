@@ -33,6 +33,33 @@ type configField struct {
 // edited reports whether the user changed the text of f.
 func (f configField) edited() bool { return f.value != f.initial }
 
+// problem returns why f cannot be saved as it stands, or "" when it can. A
+// field hop cannot honour must stop the save: parsing max_depth with a silent
+// fallback let a typo through as a success the config never recorded, and an
+// empty required field was written out only for core to coerce it back at the
+// next load, leaving config.toml and hop's behaviour disagreeing.
+func (f configField) problem() string {
+	if f.kind != fieldText {
+		return ""
+	}
+	value := strings.TrimSpace(f.value)
+	switch f.id {
+	case "command", "editor":
+		if value == "" {
+			return i18n.T("config.err.required")
+		}
+	case "roots":
+		if len(strings.Fields(f.value)) == 0 {
+			return i18n.T("config.err.required")
+		}
+	case "max_depth":
+		if n, err := strconv.Atoi(value); err != nil || n <= 0 {
+			return i18n.T("config.err.depth")
+		}
+	}
+	return ""
+}
+
 type configModel struct {
 	// base is the settings as loaded, so the Settings fields the editor does not
 	// expose keep their value through a save. Keys and comments that Settings
@@ -41,6 +68,10 @@ type configModel struct {
 	fields []configField
 	cursor int
 	saved  bool
+	// problems holds, per field id, why the last save attempt was refused, so
+	// View can mark the offending fields. A keystroke clears it: the user is
+	// already fixing what it reports.
+	problems map[string]string
 }
 
 // indexOf returns the index of v in opts, and whether it is there at all.
@@ -124,8 +155,10 @@ func (m configModel) settings() core.Settings {
 			if f.edited() {
 				s.Scan.Roots = strings.Fields(f.value)
 			}
+		// A value problem rejects never reaches here through a save, so the
+		// fallback only serves the model the caller reads before saving.
 		case "max_depth":
-			if n, err := strconv.Atoi(strings.TrimSpace(f.value)); err == nil {
+			if n, err := strconv.Atoi(strings.TrimSpace(f.value)); err == nil && n > 0 {
 				s.Scan.MaxDepth = n
 			}
 		case "ignore":
@@ -141,6 +174,23 @@ func (m configModel) settings() core.Settings {
 	return s
 }
 
+// collectProblems returns, per field id, why that field cannot be saved, and
+// nothing at all when the whole form can be written as it stands.
+func (m configModel) collectProblems() map[string]string {
+	var problems map[string]string
+	for _, f := range m.fields {
+		why := f.problem()
+		if why == "" {
+			continue
+		}
+		if problems == nil {
+			problems = make(map[string]string, len(m.fields))
+		}
+		problems[f.id] = why
+	}
+	return problems
+}
+
 func (m configModel) Init() tea.Cmd { return nil }
 
 func (m configModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -153,6 +203,13 @@ func (m configModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.saved = false
 		return m, tea.Quit
 	case "enter", "ctrl+s":
+		// A save hop cannot honour is refused rather than half-applied: the
+		// editor stays open with every offending field marked.
+		if problems := m.collectProblems(); len(problems) > 0 {
+			m.problems = problems
+			return m, nil
+		}
+		m.problems = nil
 		m.saved = true
 		return m, tea.Quit
 	case "up", "ctrl+p":
@@ -170,6 +227,7 @@ func (m configModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// The value receiver copies m, but not the array m.fields points at: without
 	// a clone, editing a field would also reach the caller's model.
 	m.fields = slices.Clone(m.fields)
+	m.problems = nil // the user is editing: a refusal from the last save is stale
 	f := &m.fields[m.cursor]
 	if f.kind == fieldSelect {
 		switch key.String() {
@@ -220,7 +278,12 @@ func (m configModel) View() string {
 			b.WriteString(keyStyle.Render(f.value))
 		}
 		b.WriteString("\n")
-		if i == m.cursor && f.help != "" {
+		// A refused field takes the help line, wherever the cursor is: a refusal
+		// the user cannot see is the silent save with the sign flipped.
+		switch why := m.problems[f.id]; {
+		case why != "":
+			b.WriteString("    " + warnStyle.Render("! "+why) + "\n")
+		case i == m.cursor && f.help != "":
 			b.WriteString("    " + dimStyle.Render(f.help) + "\n")
 		}
 		b.WriteString("\n")

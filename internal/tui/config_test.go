@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/philippe-desplats/hop/internal/core"
+	"github.com/philippe-desplats/hop/internal/i18n"
 )
 
 func TestConfigCycleSelectAndSave(t *testing.T) {
@@ -209,6 +210,104 @@ func TestConfigEveryFieldStaysEditable(t *testing.T) {
 				t.Errorf("a keystroke left %s unchanged (%+v)", f.id, after)
 			}
 		})
+	}
+}
+
+// clearField empties the text field under the cursor, one backspace at a time.
+func clearField(t *testing.T, m tea.Model) tea.Model {
+	t.Helper()
+	cm := m.(configModel)
+	for range []rune(cm.fields[cm.cursor].value) {
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	}
+	cm = m.(configModel)
+	if got := cm.fields[cm.cursor].value; got != "" {
+		t.Fatalf("field %q still holds %q", cm.fields[cm.cursor].id, got)
+	}
+	return m
+}
+
+// A save hop cannot honour must be refused, not absorbed. max_depth used to be
+// parsed with a silent fallback, so a typo ("4O" for "40") left the depth
+// exactly as it was while hop printed "config saved"; and a value core rejects
+// (0, -3) was written to config.toml and replaced at the next load, leaving the
+// file and the behaviour disagreeing. A cleared required field was saved empty
+// and coerced back the same way.
+func TestConfigRefusesSavesItCannotHonour(t *testing.T) {
+	i18n.SetLanguage("en")
+	cases := []struct {
+		field, typed string
+		wantSaved    bool
+	}{
+		{"max_depth", "abc", false},
+		{"max_depth", "4O", false}, // the typo for 40
+		{"max_depth", "", false},
+		{"max_depth", "0", false},  // core would turn it back into 7
+		{"max_depth", "-3", false}, // same
+		{"max_depth", "4", true},
+		{"max_depth", " 5 ", true}, // stray spaces are the user being human
+		{"command", "", false},
+		{"command", "hop", true},
+		{"editor", "", false},
+		{"editor", "nvim", true},
+		{"roots", "", false},
+		{"roots", "  ", false},
+		{"roots", "~/code", true},
+		{"ignore", "", true}, // ignoring nothing is a legitimate choice
+	}
+	for _, tc := range cases {
+		t.Run(tc.field+"="+tc.typed, func(t *testing.T) {
+			var m tea.Model = newConfigModel(core.DefaultSettings())
+			m = focusField(t, m, tc.field)
+			m = clearField(t, m)
+			m = typeRunes(m, tc.typed)
+			m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+			cm := m.(configModel)
+			if cm.saved != tc.wantSaved {
+				t.Errorf("%s = %q: saved = %v, want %v", tc.field, tc.typed, cm.saved, tc.wantSaved)
+			}
+			if tc.wantSaved && cmd == nil {
+				t.Error("a save must quit the editor")
+			}
+			if !tc.wantSaved && cmd != nil {
+				t.Error("a refusal must leave the editor open so the value can be fixed")
+			}
+		})
+	}
+}
+
+// A silent refusal is the same defect with the sign flipped: the user has to be
+// told which field hop could not accept.
+func TestConfigShowsWhichFieldItRefused(t *testing.T) {
+	i18n.SetLanguage("en")
+	var m tea.Model = newConfigModel(core.DefaultSettings()) // max_depth = 7
+	m = focusField(t, m, "max_depth")
+	m = clearField(t, m)
+	m = typeRunes(m, "abc")
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	cm := m.(configModel)
+	if got := cm.settings().Scan.MaxDepth; got != 7 {
+		t.Errorf("depth = %d, want the untouched 7", got)
+	}
+	view := stripANSI(cm.View())
+	if !strings.Contains(view, "whole number") {
+		t.Errorf("the refusal must name what hop expected, got:\n%s", view)
+	}
+	// Fixing the value clears the marker and lets the save through.
+	m = clearField(t, m)
+	m = typeRunes(m, "4")
+	if view := stripANSI(m.(configModel).View()); strings.Contains(view, "whole number") {
+		t.Errorf("the marker must go once the field is being fixed, got:\n%s", view)
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cm = m.(configModel)
+	if !cm.saved {
+		t.Fatal("a corrected depth must save")
+	}
+	if got := cm.settings().Scan.MaxDepth; got != 4 {
+		t.Errorf("depth = %d, want 4", got)
 	}
 }
 

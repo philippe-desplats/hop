@@ -429,6 +429,84 @@ func TestHubTogglePin(t *testing.T) {
 	}
 }
 
+// pOpts returns Options carrying a custom action bound to "p", the key the pin
+// toggle also wants.
+func pOpts() action.Options {
+	o := aiOpts()
+	o.Custom = []core.CustomAction{{Key: "p", Label: "publish", Command: "make publish", InTerminal: true}}
+	return o
+}
+
+// menuRowsForKey counts the action-menu rows bound to key. Rows are indented by
+// two spaces and start with the key padded to three columns, which tells them
+// apart from the header and the hint line.
+func menuRowsForKey(menu, key string) int {
+	n := 0
+	for _, line := range strings.Split(stripANSI(menu), "\n") {
+		if strings.HasPrefix(line, "  ") && strings.HasPrefix(strings.TrimLeft(line, " "), key+" ") {
+			n++
+		}
+	}
+	return n
+}
+
+func TestHubPinRowWithoutCustomAction(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	m := newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", aiOpts(), core.DefaultWeights())
+	menu := m.viewActions()
+	if n := menuRowsForKey(menu, "p"); n != 1 {
+		t.Errorf("action menu shows %d rows bound to p, want the pin row:\n%s", n, stripANSI(menu))
+	}
+	if !strings.Contains(stripANSI(menu), "pin to favorites") {
+		t.Errorf("action menu should offer the pin toggle:\n%s", stripANSI(menu))
+	}
+}
+
+func TestHubCustomActionWinsOverPin(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", pOpts(), core.DefaultWeights())
+	p := m.(model).current()
+	if p == nil {
+		t.Fatal("no current project")
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab}) // open the action menu
+	if n := menuRowsForKey(m.(model).viewActions(), "p"); n != 1 {
+		t.Errorf("action menu shows %d rows bound to p, want 1:\n%s", n, stripANSI(m.(model).viewActions()))
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	mm := m.(model)
+	if mm.chosen == nil || mm.actionKey != "p" {
+		t.Fatalf("'p' should fire the custom action, got chosen=%v key=%q", mm.chosen, mm.actionKey)
+	}
+	if mm.pinned[p.Path] {
+		t.Errorf("'p' should not pin %s when a custom action claims the key", p.Path)
+	}
+}
+
+func TestHubShiftCustomActionWinsOverPin(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "shift", pOpts(), core.DefaultWeights())
+	p := m.(model).current()
+	if p == nil {
+		t.Fatal("no current project")
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+	mm := m.(model)
+	if mm.chosen == nil || mm.actionKey != "p" {
+		t.Fatalf("Shift+P should fire the custom action, got chosen=%v key=%q", mm.chosen, mm.actionKey)
+	}
+	if mm.pinned[p.Path] {
+		t.Errorf("Shift+P should not pin %s when a custom action claims the key", p.Path)
+	}
+	leg := stripANSI(shiftLegend(*p, pOpts(), false))
+	if n := strings.Count(leg, "P "); n != 1 {
+		t.Errorf("legend lists %d entries bound to P, want 1: %s", n, leg)
+	}
+	if strings.Contains(leg, "pin") {
+		t.Errorf("legend should not offer the pin toggle when a custom action owns P: %s", leg)
+	}
+}
+
 func TestHubFilterAndSelect(t *testing.T) {
 	var m tea.Model = newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
 	m = typeRunes(m, "ops")

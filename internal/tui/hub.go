@@ -246,13 +246,13 @@ func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.access == "shift" && msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && unicode.IsUpper(msg.Runes[0]) {
 		if p := m.current(); p != nil {
 			key := strings.ToLower(string(msg.Runes))
-			if key == "p" {
-				m.togglePin(*p)
-				return m, nil
-			}
 			if _, ok := action.ByKey(key, *p, m.opts); ok {
 				m.chosen, m.actionKey = p, key
 				return m, tea.Quit
+			}
+			if key == "p" {
+				m.togglePin(*p)
+				return m, nil
 			}
 		}
 		// uppercase non-action letter: fall through and filter normally
@@ -319,17 +319,26 @@ func (m model) updateActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "tab":
 		m.mode = modeList
 		return m, nil
-	case "p":
+	}
+	// A configured action owns its key: the pin toggle only gets "p" when no
+	// action claims it, otherwise a [[actions.custom]] entry bound to p would be
+	// unreachable.
+	if _, ok := action.ByKey(msg.String(), *p, m.opts); ok {
+		m.chosen, m.actionKey = p, msg.String()
+		return m, tea.Quit
+	}
+	if msg.String() == "p" {
 		m.togglePin(*p)
 		m.mode = modeList
-		return m, nil
-	default:
-		if _, ok := action.ByKey(msg.String(), *p, m.opts); ok {
-			m.chosen, m.actionKey = p, msg.String()
-			return m, tea.Quit
-		}
 	}
 	return m, nil
+}
+
+// pinKeyFree reports whether the "p" key is still the pin toggle's, i.e. no
+// action available for p claims it.
+func pinKeyFree(p core.Project, opts action.Options) bool {
+	_, taken := action.ByKey("p", p, opts)
+	return !taken
 }
 
 func (m model) View() string {
@@ -595,14 +604,16 @@ func shiftLegend(p core.Project, opts action.Options, pinned bool) string {
 		first = false
 		b.WriteString(keyStyle.Render(strings.ToUpper(s.Key)) + dimStyle.Render(" "+s.Short))
 	}
-	if !first {
-		b.WriteString(dimStyle.Render(" · "))
+	if pinKeyFree(p, opts) {
+		if !first {
+			b.WriteString(dimStyle.Render(" · "))
+		}
+		pinShort := i18n.T("action.short.pin")
+		if pinned {
+			pinShort = i18n.T("action.short.unpin")
+		}
+		b.WriteString(keyStyle.Render("P") + dimStyle.Render(" "+pinShort))
 	}
-	pinShort := i18n.T("action.short.pin")
-	if pinned {
-		pinShort = i18n.T("action.short.unpin")
-	}
-	b.WriteString(keyStyle.Render("P") + dimStyle.Render(" "+pinShort))
 	return b.String()
 }
 
@@ -623,11 +634,13 @@ func (m model) viewActions() string {
 		}
 		b.WriteString("  " + keyStyle.Render(fmt.Sprintf("%-3s", key)) + s.Label + "\n")
 	}
-	pinLabel := i18n.T("action.pin")
-	if m.pinned[p.Path] {
-		pinLabel = i18n.T("action.unpin")
+	if pinKeyFree(*p, m.opts) {
+		pinLabel := i18n.T("action.pin")
+		if m.pinned[p.Path] {
+			pinLabel = i18n.T("action.unpin")
+		}
+		b.WriteString("  " + keyStyle.Render(fmt.Sprintf("%-3s", "p")) + warnStyle.Render("★ ") + pinLabel + "\n")
 	}
-	b.WriteString("  " + keyStyle.Render(fmt.Sprintf("%-3s", "p")) + warnStyle.Render("★ ") + pinLabel + "\n")
 	b.WriteString("\n" + dimStyle.Render(i18n.T("hub.actions.hint")))
 	return b.String()
 }

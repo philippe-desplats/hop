@@ -2,6 +2,7 @@ package tui
 
 import (
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -42,13 +43,25 @@ type configModel struct {
 	saved  bool
 }
 
-func indexOf(opts []string, v string) int {
+// indexOf returns the index of v in opts, and whether it is there at all.
+func indexOf(opts []string, v string) (int, bool) {
 	for i, o := range opts {
 		if o == v {
-			return i
+			return i, true
 		}
 	}
-	return 0
+	return 0, false
+}
+
+// withCurrent returns the options of a select field and the index of its stored
+// value v, appending v when the list does not offer it. Without that, a value
+// hop does not ship (e.g. language = "de") would be displayed as the first
+// option and saved back as that option, replacing what the user wrote.
+func withCurrent(opts []string, v string) ([]string, int) {
+	if i, ok := indexOf(opts, v); ok || v == "" {
+		return opts, i
+	}
+	return append(slices.Clone(opts), v), len(opts)
 }
 
 func boolIdx(b bool) int {
@@ -59,16 +72,16 @@ func boolIdx(b bool) int {
 }
 
 func newConfigModel(s core.Settings) configModel {
-	access := []string{"tab", "shift", "enter"}
-	langs := []string{"auto", "en", "fr", "es", "pt"}
-	themes := []string{"auto", "light", "dark"}
+	access, accessIdx := withCurrent([]string{"tab", "shift", "enter"}, s.Hub.ActionAccess)
+	langs, langIdx := withCurrent([]string{"auto", "en", "fr", "es", "pt"}, s.UI.Language)
+	themes, themeIdx := withCurrent([]string{"auto", "light", "dark"}, s.UI.Theme)
 	onoff := []string{i18n.T("config.opt.no"), i18n.T("config.opt.yes")}
 	m := configModel{
 		base: s,
 		fields: []configField{
 			{id: "command", kind: fieldText, label: i18n.T("config.field.command"), value: s.Shell.Command,
 				help: i18n.T("config.help.command")},
-			{id: "action_access", kind: fieldSelect, label: i18n.T("config.field.access"), options: access, idx: indexOf(access, s.Hub.ActionAccess),
+			{id: "action_access", kind: fieldSelect, label: i18n.T("config.field.access"), options: access, idx: accessIdx,
 				help: i18n.T("config.help.access")},
 			{id: "editor", kind: fieldText, label: i18n.T("config.field.editor"), value: s.Actions.Editor,
 				help: i18n.T("config.help.editor")},
@@ -79,8 +92,8 @@ func newConfigModel(s core.Settings) configModel {
 				help: i18n.T("config.help.depth")},
 			{id: "ignore", kind: fieldText, label: i18n.T("config.field.ignore"), value: strings.Join(s.Scan.Ignore, " "),
 				help: i18n.T("config.help.ignore")},
-			{id: "language", kind: fieldSelect, label: i18n.T("config.field.language"), options: langs, idx: indexOf(langs, s.UI.Language)},
-			{id: "theme", kind: fieldSelect, label: i18n.T("config.field.theme"), options: themes, idx: indexOf(themes, s.UI.Theme)},
+			{id: "language", kind: fieldSelect, label: i18n.T("config.field.language"), options: langs, idx: langIdx},
+			{id: "theme", kind: fieldSelect, label: i18n.T("config.field.theme"), options: themes, idx: themeIdx},
 		},
 	}
 	for i := range m.fields {

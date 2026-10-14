@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -105,6 +107,58 @@ func TestConfigEditCanDeleteARoot(t *testing.T) {
 	got := m.(configModel).settings().Scan.Roots
 	if len(got) != 1 || got[0] != "/a" {
 		t.Errorf("roots after deleting one = %q, want [/a]", got)
+	}
+}
+
+// A language hop does not ship still belongs to the user: the editor must show
+// it and hand it back, not silently rewrite it to the first option.
+func TestConfigKeepsUnknownLanguage(t *testing.T) {
+	s := core.DefaultSettings()
+	s.UI.Language = "de"
+	m := newConfigModel(s)
+
+	if got := m.settings().UI.Language; got != "de" {
+		t.Errorf("language = %q, want de", got)
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, "auto en fr es pt [de]") {
+		t.Errorf("language row does not show de as current:\n%s", view)
+	}
+}
+
+func TestConfigSelectOptionsUnchangedForKnownValues(t *testing.T) {
+	s := core.DefaultSettings()
+	s.UI.Language, s.UI.Theme, s.Hub.ActionAccess = "fr", "dark", "enter"
+	m := newConfigModel(s)
+
+	want := map[string][]string{
+		"language":      {"auto", "en", "fr", "es", "pt"},
+		"theme":         {"auto", "light", "dark"},
+		"action_access": {"tab", "shift", "enter"},
+	}
+	for _, f := range m.fields {
+		if opts, ok := want[f.id]; ok && !slices.Equal(f.options, opts) {
+			t.Errorf("%s options = %q, want %q", f.id, f.options, opts)
+		}
+	}
+	if got := m.settings(); got.UI.Language != "fr" || got.UI.Theme != "dark" || got.Hub.ActionAccess != "enter" {
+		t.Errorf("known values changed: %+v", got)
+	}
+}
+
+func TestConfigCyclingLanguageReachesEveryShippedLanguage(t *testing.T) {
+	var m tea.Model = newConfigModel(core.DefaultSettings())
+	m = focusField(t, m, "language")
+
+	seen := map[string]bool{}
+	for range 5 {
+		cm := m.(configModel)
+		seen[cm.settings().UI.Language] = true
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	}
+	for _, lang := range []string{"auto", "en", "fr", "es", "pt"} {
+		if !seen[lang] {
+			t.Errorf("cycling never reached %q (saw %v)", lang, seen)
+		}
 	}
 }
 

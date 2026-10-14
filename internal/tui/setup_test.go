@@ -1,10 +1,14 @@
 package tui
 
 import (
+	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/philippe-desplats/hop/internal/action"
 	"github.com/philippe-desplats/hop/internal/core"
+	"github.com/philippe-desplats/hop/internal/i18n"
 )
 
 func TestNewSetupModelPreselectsReposAndDefaults(t *testing.T) {
@@ -120,6 +124,88 @@ func TestNewSetupModelFallsBackToFirstRootAndKeepsDefaults(t *testing.T) {
 	if s.AI.Tool != "auto" {
 		t.Errorf("ai = %q, want auto", s.AI.Tool)
 	}
+}
+
+// Unchecking every folder cannot mean "keep the configured roots": settings()
+// falls back to base when the selection is empty, and the confirm screen is
+// built from that same call, so the wizard would present a root the user just
+// deselected as their choice. The step must refuse to advance and say so.
+func TestSetupRootsStepRefusesAnEmptySelection(t *testing.T) {
+	i18n.SetLanguage("en")
+	base := core.DefaultSettings()
+	base.Scan.Roots = []string{"~/work"}
+	var m tea.Model = newSetupModel(SetupInput{
+		Settings: base,
+		Roots:    []core.RootCandidate{{Path: "~/work", Repos: 2}, {Path: "~/misc", Repos: 0}},
+	})
+	m = uncheckEveryRoot(t, m)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	sm, ok := m.(setupModel)
+	if !ok {
+		t.Fatalf("Update returned a %T, want setupModel", m)
+	}
+	if sm.step != stepRoots {
+		t.Fatalf("step = %d, want to stay on the roots step (%d)", sm.step, stepRoots)
+	}
+	if view := stripANSI(sm.View()); !strings.Contains(view, "at least one folder") {
+		t.Errorf("the refusal must be on screen, got:\n%s", view)
+	}
+}
+
+// Checking a folder clears the refusal and lets the wizard move on, so the
+// guard costs a corrected selection and nothing more.
+func TestSetupRootsStepAdvancesOnceAFolderIsChecked(t *testing.T) {
+	var m tea.Model = newSetupModel(SetupInput{
+		Settings: core.DefaultSettings(),
+		Roots:    []core.RootCandidate{{Path: "~/work", Repos: 2}, {Path: "~/misc", Repos: 0}},
+	})
+	m = uncheckEveryRoot(t, m)
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter}) // refused
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace}) // check ~/misc, under the cursor
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	sm := m.(setupModel)
+	if sm.step != stepEditor {
+		t.Fatalf("step = %d, want stepEditor (%d) once a folder is checked", sm.step, stepEditor)
+	}
+	if got := sm.settings().Scan.Roots; len(got) != 1 || got[0] != "~/misc" {
+		t.Errorf("roots = %v, want the checked [~/misc]", got)
+	}
+	if view := stripANSI(sm.View()); strings.Contains(view, "at least one folder") {
+		t.Errorf("the refusal must be gone once a folder is checked, got:\n%s", view)
+	}
+}
+
+// With no candidate folder at all there is nothing to check, so the guard must
+// not lock the user inside the step: the only way out would be esc.
+func TestSetupRootsStepAdvancesWhenThereIsNothingToChoose(t *testing.T) {
+	var m tea.Model = newSetupModel(SetupInput{Settings: core.DefaultSettings()}) // no roots
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if got := m.(setupModel).step; got != stepEditor {
+		t.Fatalf("step = %d, want stepEditor (%d) when no folder was found", got, stepEditor)
+	}
+}
+
+// uncheckEveryRoot walks the roots step and toggles off every checked folder,
+// leaving the cursor on the last one.
+func uncheckEveryRoot(t *testing.T, m tea.Model) tea.Model {
+	t.Helper()
+	for i := range m.(setupModel).rootSel {
+		if m.(setupModel).rootSel[i] {
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeySpace})
+		}
+		if i < len(m.(setupModel).rootSel)-1 {
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		}
+	}
+	for i, ok := range m.(setupModel).rootSel {
+		if ok {
+			t.Fatalf("root %d is still checked: %v", i, m.(setupModel).rootSel)
+		}
+	}
+	return m
 }
 
 func TestNewSetupModelSkipsShellStepWhenAlreadyWired(t *testing.T) {

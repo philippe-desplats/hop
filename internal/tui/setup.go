@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -54,6 +55,10 @@ type setupModel struct {
 	step      int
 	cursor    int
 	confirmed bool
+
+	// rootsRefused records that the user tried to leave the roots step with no
+	// folder checked, so the step can say why it did not move on.
+	rootsRefused bool
 }
 
 // editorIndex returns the index of the editor whose binary is bin, and 0 when
@@ -172,6 +177,7 @@ func (m setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case " ":
 		if m.step == stepRoots && m.cursor < len(m.rootSel) {
 			m.rootSel[m.cursor] = !m.rootSel[m.cursor]
+			m.rootsRefused = false
 		}
 		return m, nil
 	case "enter":
@@ -181,9 +187,19 @@ func (m setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // advance records the cursor choice for single-select steps and moves to the
-// next step, or confirms and quits on the final step.
+// next step, or confirms and quits on the final step. The roots step is the one
+// that can refuse to move: settings() keeps the configured roots when nothing is
+// checked, so letting an empty selection through would hand the user back a
+// folder they deselected, shown on the confirm screen as their own choice.
 func (m setupModel) advance() (tea.Model, tea.Cmd) {
 	switch m.step {
+	case stepRoots:
+		// No candidate at all is not a selection the user can fix: the step says
+		// so and the config keeps whatever roots it already had.
+		if len(m.roots) > 0 && !slices.Contains(m.rootSel, true) {
+			m.rootsRefused = true
+			return m, nil
+		}
 	case stepEditor:
 		if len(m.editors) > 0 {
 			m.editorIdx = m.cursor
@@ -262,6 +278,9 @@ func (m setupModel) viewRoots(b *strings.Builder) {
 			marker, label = selStyle.Render("▸ "), selStyle.Render(r.Path)
 		}
 		fmt.Fprintf(b, "%s%s %-20s %s\n", marker, check, label, dimStyle.Render(i18n.Tf("setup.roots.repos", r.Repos)))
+	}
+	if m.rootsRefused {
+		b.WriteString("\n  " + warnStyle.Render("! "+i18n.T("setup.roots.none")) + "\n")
 	}
 	b.WriteString("\n" + dimStyle.Render(i18n.T("setup.hint.multi")))
 }

@@ -310,17 +310,24 @@ func cmdNav(args []string) {
 	}
 
 	// Jump-list: `p -` (previous), `p -2`, `p -3` (nth most recent, excluding cwd).
+	// A leading `-` is a flag namespace, never a keyword: keywords are matched as
+	// a substring of the lowercased full path, so handing an unparsed `-h` to the
+	// resolver would cd the user into the first project whose path contains "-h".
 	if len(args) == 1 && strings.HasPrefix(args[0], "-") {
-		if n, ok := parseJumpBack(args[0]); ok {
-			cwd, _ := os.Getwd()
-			prev := frec.NthMostRecentExcept(core.CanonicalDir(cwd), n)
-			if prev == "" {
-				fmt.Fprintln(os.Stderr, i18n.T("cli.no_prev"))
-				os.Exit(1)
-			}
-			emitOutcome(action.Outcome{Cd: prev})
-			return
+		n, ok := parseJumpBack(args[0])
+		if !ok {
+			fmt.Fprintf(os.Stderr, "hop: unknown option %q\n", args[0])
+			fmt.Fprintln(os.Stderr, "usage: p - (previous), p -2, p -3 (nth most recent)")
+			os.Exit(2)
 		}
+		cwd, _ := os.Getwd()
+		prev := frec.NthMostRecentExcept(core.CanonicalDir(cwd), n)
+		if prev == "" {
+			fmt.Fprintln(os.Stderr, i18n.T("cli.no_prev"))
+			os.Exit(1)
+		}
+		emitOutcome(action.Outcome{Cd: prev})
+		return
 	}
 
 	matches := core.Resolve(idx.Projects, frec, args, now, weights)

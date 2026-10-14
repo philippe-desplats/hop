@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -10,23 +11,80 @@ import (
 	"github.com/philippe-desplats/hop/internal/core"
 )
 
+// stripANSI drops the complete ANSI escape sequences of s and keeps every other
+// byte, control runes included, so an assertion can tell styling apart from
+// payload: anything stripANSI removes is a sequence it recognised in full.
 func stripANSI(s string) string {
 	var b strings.Builder
-	inEsc := false
-	for _, r := range s {
-		if inEsc {
-			if r == 'm' {
-				inEsc = false
-			}
+	for i := 0; i < len(s); {
+		if n := escapeLen(s[i:]); n > 0 {
+			i += n
 			continue
 		}
-		if r == 0x1b {
-			inEsc = true
-			continue
-		}
+		r, size := utf8.DecodeRuneInString(s[i:])
 		b.WriteRune(r)
+		i += size
 	}
 	return b.String()
+}
+
+// escapeLen returns the byte length of the ANSI escape sequence starting s, or
+// 0 when s does not start with a complete one. An unterminated or unknown
+// sequence counts as none, so the escape is kept instead of swallowing the rest
+// of the string.
+func escapeLen(s string) int {
+	if len(s) < 2 || s[0] != 0x1b {
+		return 0
+	}
+	switch s[1] {
+	case '[': // CSI: parameter and intermediate bytes, then a final byte
+		for i := 2; i < len(s); i++ {
+			switch c := s[i]; {
+			case c >= 0x40 && c <= 0x7e:
+				return i + 1
+			case c >= 0x20 && c <= 0x3f:
+			default:
+				return 0
+			}
+		}
+	case ']': // OSC: terminated by BEL or by ST (ESC backslash)
+		for i := 2; i < len(s); i++ {
+			if s[i] == '\a' {
+				return i + 1
+			}
+			if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '\\' {
+				return i + 2
+			}
+		}
+	}
+	return 0
+}
+
+func TestStripANSI(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"sgr colours", "\x1b[31mred\x1b[0m", "red"},
+		{"csi final byte other than m", "\x1b[2Jcleared", "cleared"},
+		{"csi with no parameters", "plain\x1b[Kend", "plainend"},
+		{"osc terminated by bel", "\x1b]0;t\aafter", "after"},
+		{"osc terminated by st", "\x1b]0;t\x1b\\after", "after"},
+		{"no escape at all", "plain", "plain"},
+		{"multibyte text survives", "héllo\x1b[0m", "héllo"},
+		{"lone control rune is kept", "a\ab", "a\ab"},
+		{"escape that starts no sequence is kept", "a\x1bb", "a\x1bb"},
+		{"unterminated csi is kept", "a\x1b[31", "a\x1b[31"},
+		{"unterminated osc is kept", "a\x1b]0;t", "a\x1b]0;t"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := stripANSI(tc.in); got != tc.want {
+				t.Errorf("stripANSI(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
 }
 
 func TestStyledPathPreservesText(t *testing.T) {

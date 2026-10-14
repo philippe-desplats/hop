@@ -76,6 +76,28 @@ func TestCmdImportSubprocess(t *testing.T) {
 		}
 	})
 
+	// A truncated `hop import --from zoxide --dry-run` — a clipped paste, an
+	// edited shell history line — used to swallow the valueless --from and run a
+	// committed import, indistinguishable from the intended one.
+	t.Run("--from with no value is refused", func(t *testing.T) {
+		for _, arg := range []string{"--from", "--from="} {
+			t.Run(arg, func(t *testing.T) {
+				out, code, stateDir := run(t, true, arg)
+				if code != 2 {
+					t.Errorf("exit = %d, want 2 (usage error)\n%s", code, out)
+				}
+				if !strings.Contains(out, "--from") {
+					t.Errorf("stderr must name the flag at fault, got:\n%s", out)
+				}
+				for _, name := range []string{"extras.json", "frecency.json"} {
+					if _, err := os.Stat(filepath.Join(stateDir, "hop", name)); err == nil {
+						t.Errorf("a refused import must not write %s", name)
+					}
+				}
+			})
+		}
+	})
+
 	t.Run("real run tracks the repo and seeds frecency", func(t *testing.T) {
 		out, code, stateDir := run(t, true, "--from", "zoxide")
 		if code != 0 {

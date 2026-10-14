@@ -145,13 +145,23 @@ func cmdImport(args []string) {
 		switch {
 		case a == "--dry-run":
 			dryRun = true
+		// A --from without a value is a usage error, like `hop init --cmd`:
+		// swallowing it would run a committed import — writing extras.json and
+		// frecency.json — on a `hop import --from zoxide --dry-run` the user lost
+		// the tail of, with nothing to tell it apart from the intended one.
 		case a == "--from":
-			if i+1 < len(args) {
-				i++
-				source = args[i]
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "hop: --from requires a source (only zoxide is supported)")
+				os.Exit(2)
 			}
+			i++
+			source = args[i]
 		case strings.HasPrefix(a, "--from="):
 			source = strings.TrimPrefix(a, "--from=")
+			if source == "" {
+				fmt.Fprintln(os.Stderr, "hop: --from requires a source (only zoxide is supported)")
+				os.Exit(2)
+			}
 		default:
 			fmt.Fprintln(os.Stderr, i18n.Tf("cli.import_unknown_flag", a))
 			os.Exit(2)

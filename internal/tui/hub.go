@@ -390,9 +390,24 @@ func (m model) contentWidth() int {
 	return min(m.width-4, 100)
 }
 
+// sanitize drops the control runes of s, escape and newline included. Branches,
+// commit subjects and directory names are written by someone else (a commit
+// author, a cloned repository, an imported zoxide entry) and lipgloss only
+// colours a string: left alone, such a rune would reach the terminal and let
+// foreign text clear the screen, move the cursor or split one row over two
+// lines. The remaining characters stay visible as inert text.
+func sanitize(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func (m model) renderRow(i int) string {
 	p := m.matches[i].Project
-	disp := core.DisplayPath(p.Path, m.roots)
+	disp := sanitize(core.DisplayPath(p.Path, m.roots))
 	kws := strings.Fields(strings.ToLower(m.query))
 	if i == m.cursor {
 		return m.renderSelected(disp, kws)
@@ -506,15 +521,16 @@ func (m model) gitPreview() string {
 	if info.Dirty {
 		state = warnStyle.Render("● " + i18n.T("hub.git.dirty"))
 	}
-	line := keyStyle.Render("⎇ "+info.Branch) + "  " + state
-	if info.LastCommit != "" {
-		c := info.LastCommit
+	line := keyStyle.Render("⎇ "+sanitize(info.Branch)) + "  " + state
+	// Sanitize before truncating, so the 50-rune budget counts characters the
+	// user will actually see.
+	if c := sanitize(info.LastCommit); c != "" {
 		if r := []rune(c); len(r) > 50 {
 			c = string(r[:50]) + "…"
 		}
 		line += dimStyle.Render("  " + c)
-		if info.LastWhen != "" {
-			line += dimStyle.Render(" · " + info.LastWhen)
+		if when := sanitize(info.LastWhen); when != "" {
+			line += dimStyle.Render(" · " + when)
 		}
 	}
 	return line
@@ -553,7 +569,7 @@ func (m model) viewActions() string {
 		return m.viewList()
 	}
 	var b strings.Builder
-	b.WriteString(promptStyle.Render("hop ❯ ") + selStyle.Render(p.Name) + dimStyle.Render("  "+core.DisplayPath(p.Path, m.roots)) + "\n\n")
+	b.WriteString(promptStyle.Render("hop ❯ ") + selStyle.Render(sanitize(p.Name)) + dimStyle.Render("  "+sanitize(core.DisplayPath(p.Path, m.roots))) + "\n\n")
 	for _, s := range action.All(m.opts) {
 		if !s.Available(*p) {
 			continue

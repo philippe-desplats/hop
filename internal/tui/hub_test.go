@@ -87,6 +87,137 @@ func TestStripANSI(t *testing.T) {
 	}
 }
 
+// matchIndex locates path in m.matches: core.Resolve reorders the list, so a test
+// must never assume the project it built sits at index 0.
+func matchIndex(m model, path string) int {
+	for i, mt := range m.matches {
+		if mt.Project.Path == path {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestHubSanitizesGitPreview(t *testing.T) {
+	m := newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	p := m.current()
+	if p == nil {
+		t.Fatal("no current project")
+	}
+
+	// Branch, subject and age all come from git, i.e. from whoever authored the
+	// commit. Assert on the raw string: stripANSI would remove the very escape
+	// this test is about.
+	m.git[p.Path] = core.GitInfo{
+		IsRepo:     true,
+		Branch:     "main\x1b[2J",
+		LastCommit: "fix: \x1b[2J\x1b[H\x1b[31mTOTALLY CLEAN\x1b[0m",
+		LastWhen:   "2 hours\nago",
+	}
+	pv := m.gitPreview()
+	if strings.Contains(pv, "\x1b[2J") {
+		t.Errorf("git preview leaks a screen-clear escape: %q", pv)
+	}
+	if strings.Contains(pv, "\x1b[H") {
+		t.Errorf("git preview leaks a cursor-home escape: %q", pv)
+	}
+	if n := strings.Count(pv, "\n"); n != 0 {
+		t.Errorf("git preview spans %d extra lines: %q", n, pv)
+	}
+
+	// The 50-rune budget must count visible characters, so truncation cannot cut
+	// a sanitized subject mid-escape either.
+	m.git[p.Path] = core.GitInfo{
+		IsRepo:     true,
+		Branch:     "main",
+		LastCommit: strings.Repeat("a", 45) + "\x1b[31mred",
+	}
+	pv = m.gitPreview()
+	if strings.Contains(pv, "\x1b[31m") {
+		t.Errorf("truncated subject still carries a foreign colour escape: %q", pv)
+	}
+}
+
+func TestHubGitPreviewKeepsOrdinaryText(t *testing.T) {
+	m := newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	p := m.current()
+	if p == nil {
+		t.Fatal("no current project")
+	}
+	m.git[p.Path] = core.GitInfo{
+		IsRepo:     true,
+		Branch:     "feature/café-☕",
+		LastCommit: "feat: ajoute la préférence ✨",
+		LastWhen:   "il y a 2 heures",
+	}
+	pv := stripANSI(m.gitPreview())
+	for _, want := range []string{"feature/café-☕", "feat: ajoute la préférence ✨", "il y a 2 heures"} {
+		if !strings.Contains(pv, want) {
+			t.Errorf("git preview dropped ordinary text %q: %q", want, pv)
+		}
+	}
+}
+
+func TestHubSanitizesRowPath(t *testing.T) {
+	const (
+		escPath = "/p/work/evil\x1b[2Jrepo"
+		nlPath  = "/p/work/two\nlines"
+	)
+	projects := []core.Project{
+		{Name: "evil", Path: escPath, Category: "work"},
+		{Name: "two", Path: nlPath, Category: "work"},
+		{Name: "ops-tools", Path: "/p/work/ops-tools", Category: "work"},
+	}
+	m := newModel(projects, &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	for _, path := range []string{escPath, nlPath} {
+		i := matchIndex(m, path)
+		if i < 0 {
+			t.Fatalf("project %q is not in the match list", path)
+		}
+		for _, sel := range []bool{true, false} {
+			m.cursor = i
+			if !sel {
+				m.cursor = (i + 1) % len(m.matches)
+			}
+			row := m.renderRow(i)
+			if strings.Contains(row, "\x1b[2J") {
+				t.Errorf("row (selected=%v) leaks a screen-clear escape: %q", sel, row)
+			}
+			if n := strings.Count(row, "\n"); n != 0 {
+				t.Errorf("row (selected=%v) spans %d extra lines: %q", sel, n, row)
+			}
+		}
+	}
+}
+
+func TestHubSanitizesActionMenu(t *testing.T) {
+	projects := []core.Project{{Name: "evil\x1b[2J", Path: "/p/work/evil\x1b[2Jrepo", Category: "work"}}
+	m := newModel(projects, &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	menu := m.viewActions()
+	if strings.Contains(menu, "\x1b[2J") {
+		t.Errorf("action menu leaks a screen-clear escape: %q", menu)
+	}
+}
+
+func TestSanitize(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"work/café-☕", "work/café-☕"},
+		{"a\x1b[2Jb", "a[2Jb"},
+		{"two\nlines", "twolines"},
+		{"bell\ahere", "bellhere"},
+		{"tab\there", "tabhere"},
+	}
+	for _, tc := range cases {
+		if got := sanitize(tc.in); got != tc.want {
+			t.Errorf("sanitize(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestStyledPathPreservesText(t *testing.T) {
 	disp := "work/acme/web-monorepo"
 	styled := styledPath(disp, "work", []string{"acme", "web"})

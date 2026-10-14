@@ -50,6 +50,64 @@ func TestConfigKeepsUnexposedActionSettings(t *testing.T) {
 	}
 }
 
+// focusField moves the cursor onto the field with the given id.
+func focusField(t *testing.T, m tea.Model, id string) tea.Model {
+	t.Helper()
+	for range m.(configModel).fields {
+		cm := m.(configModel)
+		if cm.fields[cm.cursor].id == id {
+			return m
+		}
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	t.Fatalf("no field %q in the editor", id)
+	return m
+}
+
+// A root or an ignore pattern holding a space must not be split in two by a
+// save the user never asked for.
+func TestConfigKeepsUntouchedListsVerbatim(t *testing.T) {
+	s := core.DefaultSettings()
+	s.Scan.Roots = []string{"/Users/me/My Projects"}
+	s.Scan.Ignore = []string{"node modules"}
+
+	got := newConfigModel(s).settings()
+	if len(got.Scan.Roots) != 1 || got.Scan.Roots[0] != s.Scan.Roots[0] {
+		t.Errorf("roots = %q, want %q", got.Scan.Roots, s.Scan.Roots)
+	}
+	if len(got.Scan.Ignore) != 1 || got.Scan.Ignore[0] != s.Scan.Ignore[0] {
+		t.Errorf("ignore = %q, want %q", got.Scan.Ignore, s.Scan.Ignore)
+	}
+}
+
+func TestConfigReparsesEditedLists(t *testing.T) {
+	s := core.DefaultSettings()
+	s.Scan.Roots = []string{"/a"}
+	var m tea.Model = newConfigModel(s)
+	m = focusField(t, m, "roots")
+	m = typeRunes(m, " /b")
+
+	got := m.(configModel).settings().Scan.Roots
+	if len(got) != 2 || got[0] != "/a" || got[1] != "/b" {
+		t.Errorf("roots after an edit = %q, want [/a /b]", got)
+	}
+}
+
+func TestConfigEditCanDeleteARoot(t *testing.T) {
+	s := core.DefaultSettings()
+	s.Scan.Roots = []string{"/a", "/b"}
+	var m tea.Model = newConfigModel(s)
+	m = focusField(t, m, "roots")
+	for range 3 { // "/a /b" -> "/a"
+		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	}
+
+	got := m.(configModel).settings().Scan.Roots
+	if len(got) != 1 || got[0] != "/a" {
+		t.Errorf("roots after deleting one = %q, want [/a]", got)
+	}
+}
+
 func TestConfigEscDoesNotSave(t *testing.T) {
 	var m tea.Model = newConfigModel(core.DefaultSettings())
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})

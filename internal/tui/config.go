@@ -24,7 +24,13 @@ type configField struct {
 	options []string // select
 	idx     int      // select
 	value   string   // text
+	// initial is value as newConfigModel built it, so settings can tell a field
+	// the user edited from one they only walked past.
+	initial string
 }
+
+// edited reports whether the user changed the text of f.
+func (f configField) edited() bool { return f.value != f.initial }
 
 type configModel struct {
 	// base is the settings as loaded, so the Settings fields the editor does not
@@ -57,7 +63,7 @@ func newConfigModel(s core.Settings) configModel {
 	langs := []string{"auto", "en", "fr", "es", "pt"}
 	themes := []string{"auto", "light", "dark"}
 	onoff := []string{i18n.T("config.opt.no"), i18n.T("config.opt.yes")}
-	return configModel{
+	m := configModel{
 		base: s,
 		fields: []configField{
 			{id: "command", kind: fieldText, label: i18n.T("config.field.command"), value: s.Shell.Command,
@@ -77,6 +83,10 @@ func newConfigModel(s core.Settings) configModel {
 			{id: "theme", kind: fieldSelect, label: i18n.T("config.field.theme"), options: themes, idx: indexOf(themes, s.UI.Theme)},
 		},
 	}
+	for i := range m.fields {
+		m.fields[i].initial = m.fields[i].value
+	}
+	return m
 }
 
 // settings rebuilds Settings from the current field values on top of base, so
@@ -94,14 +104,21 @@ func (m configModel) settings() core.Settings {
 			s.Actions.Editor = strings.TrimSpace(f.value)
 		case "show_tmux":
 			s.Actions.ShowTmux = f.idx == 1
+		// roots and ignore are one space-separated field, so splitting them back
+		// loses any entry that holds a space. Only split what the user retyped;
+		// an untouched field keeps the list it was loaded with.
 		case "roots":
-			s.Scan.Roots = strings.Fields(f.value)
+			if f.edited() {
+				s.Scan.Roots = strings.Fields(f.value)
+			}
 		case "max_depth":
 			if n, err := strconv.Atoi(strings.TrimSpace(f.value)); err == nil {
 				s.Scan.MaxDepth = n
 			}
 		case "ignore":
-			s.Scan.Ignore = strings.Fields(f.value)
+			if f.edited() {
+				s.Scan.Ignore = strings.Fields(f.value)
+			}
 		case "language":
 			s.UI.Language = f.options[f.idx]
 		case "theme":

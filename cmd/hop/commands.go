@@ -80,11 +80,12 @@ func trackOrUntrack(args []string, track bool) {
 		}
 		args = []string{cwd}
 	}
-	changed := false
+	changed, failed := false, false
 	for _, arg := range args {
 		path := core.CanonicalDir(expandTilde(arg))
 		if core.HasControlChars(path) {
 			fmt.Fprintln(os.Stderr, i18n.T("cli.unsafe_path"))
+			failed = true
 			continue
 		}
 		label := core.HomeRelative(path)
@@ -92,6 +93,7 @@ func trackOrUntrack(args []string, track bool) {
 			//nolint:gosec // path is the folder the user explicitly asked to track, already canonicalized and control-char checked; we only stat it to confirm it is a directory.
 			if fi, err := os.Stat(path); err != nil || !fi.IsDir() {
 				fmt.Fprintln(os.Stderr, i18n.Tf("cli.track_not_dir", arg))
+				failed = true
 				continue
 			}
 			added, err := core.AddExtra(path)
@@ -120,6 +122,14 @@ func trackOrUntrack(args []string, track bool) {
 	// Rebuild so the change is reflected on the next `p` without waiting for a scan.
 	if changed {
 		core.BuildAndSaveIndex(core.ScanConfig(core.LoadSettings()))
+	}
+	// Exit code rule, git's: one rejected argument fails the command, even when
+	// the others went through. `hop track ~/Dowloads && …` must not print ok on a
+	// typo, and a script tracking a list must not report success having tracked
+	// none of them. An argument that was simply already (un)tracked is a no-op,
+	// not a failure.
+	if failed {
+		os.Exit(1)
 	}
 }
 

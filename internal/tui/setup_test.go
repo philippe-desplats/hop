@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -187,6 +188,106 @@ func TestSetupRootsStepAdvancesWhenThereIsNothingToChoose(t *testing.T) {
 
 	if got := m.(setupModel).step; got != stepEditor {
 		t.Fatalf("step = %d, want stepEditor (%d) when no folder was found", got, stepEditor)
+	}
+}
+
+// setupWalkInput is the fully populated wizard the navigation tests walk
+// through: candidate folders, several editors and an assistant, so every step
+// has rows to move over.
+func setupWalkInput() SetupInput {
+	return SetupInput{
+		Settings:   core.DefaultSettings(),
+		Roots:      []core.RootCandidate{{Path: "~/work", Repos: 2}, {Path: "~/misc", Repos: 0}},
+		Editors:    []action.Editor{{Name: "Cursor", Bin: "cursor"}, {Name: "Zed", Bin: "zed"}},
+		Assistants: []string{"claude"},
+		ShellName:  "zsh",
+		RcLabel:    "~/.zshrc",
+	}
+}
+
+// Leaving a step used to be one-way: no key decremented the step, so a user who
+// noticed a wrong folder from the editor step could only press esc — abandoning
+// the whole wizard — and run `hop setup` again.
+func TestSetupStepsBackToThePreviousStep(t *testing.T) {
+	for _, key := range []tea.KeyType{tea.KeyLeft, tea.KeyShiftTab} {
+		t.Run(tea.KeyMsg{Type: key}.String(), func(t *testing.T) {
+			var m tea.Model = newSetupModel(setupWalkInput())
+			want := slices.Clone(m.(setupModel).rootSel)
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter}) // roots -> editor
+			if got := m.(setupModel).step; got != stepEditor {
+				t.Fatalf("step = %d, want stepEditor (%d) before stepping back", got, stepEditor)
+			}
+			m, _ = m.Update(tea.KeyMsg{Type: key})
+
+			sm := m.(setupModel)
+			if sm.step != stepRoots {
+				t.Fatalf("step = %d, want back to stepRoots (%d)", sm.step, stepRoots)
+			}
+			if !slices.Equal(sm.rootSel, want) {
+				t.Errorf("rootSel = %v, want it untouched at %v", sm.rootSel, want)
+			}
+		})
+	}
+}
+
+// A step back is only a step: every choice already recorded stays, and the step
+// comes up on the row it holds rather than on its first one.
+func TestSetupStepBackKeepsTheChoicesAndTheCursor(t *testing.T) {
+	var m tea.Model = newSetupModel(setupWalkInput())
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})    // roots -> editor
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})     // onto Zed
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})    // editor -> ai, Zed recorded
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})     // onto claude
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})    // ai -> shell, claude recorded
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // back to ai
+
+	sm := m.(setupModel)
+	if sm.step != stepAI || sm.aiIdx != 1 || sm.cursor != 1 {
+		t.Fatalf("step, aiIdx, cursor = %d, %d, %d; want stepAI (%d) on the chosen claude (1, 1)", sm.step, sm.aiIdx, sm.cursor, stepAI)
+	}
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // back to editor
+
+	sm = m.(setupModel)
+	if sm.step != stepEditor || sm.editorIdx != 1 || sm.cursor != 1 {
+		t.Fatalf("step, editorIdx, cursor = %d, %d, %d; want stepEditor (%d) on the chosen Zed (1, 1)", sm.step, sm.editorIdx, sm.cursor, stepEditor)
+	}
+	if got := sm.settings().Actions.Editor; got != "zed" {
+		t.Errorf("editor = %q, want the chosen zed kept across the step back", got)
+	}
+}
+
+// There is nothing behind the first step, and the back key must not stand in
+// for cancelling: pressing it there does nothing at all.
+func TestSetupBackKeyIsANoOpOnTheFirstStep(t *testing.T) {
+	var m tea.Model = newSetupModel(setupWalkInput())
+	for _, key := range []tea.KeyType{tea.KeyLeft, tea.KeyShiftTab} {
+		var cmd tea.Cmd
+		m, cmd = m.Update(tea.KeyMsg{Type: key})
+		sm := m.(setupModel)
+		if sm.step != stepRoots {
+			t.Fatalf("%s moved off stepRoots to step %d", tea.KeyMsg{Type: key}, sm.step)
+		}
+		if cmd != nil {
+			t.Errorf("%s returned a command, want the key to do nothing", tea.KeyMsg{Type: key})
+		}
+		if sm.confirmed {
+			t.Errorf("%s confirmed the wizard", tea.KeyMsg{Type: key})
+		}
+	}
+}
+
+// esc keeps cancelling from a step that was reached by going back.
+func TestSetupEscCancelsAfterAStepBack(t *testing.T) {
+	var m tea.Model = newSetupModel(setupWalkInput())
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if cmd == nil {
+		t.Error("esc must quit the wizard")
+	}
+	if m.(setupModel).confirmed {
+		t.Error("esc must not confirm the wizard")
 	}
 }
 

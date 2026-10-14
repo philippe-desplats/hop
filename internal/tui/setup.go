@@ -181,6 +181,8 @@ func (m setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rootsRefused = false
 		}
 		return m, nil
+	case "left", "shift+tab":
+		return m.back()
 	case "enter":
 		return m.advance()
 	}
@@ -216,18 +218,39 @@ func (m setupModel) advance() (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	m.step++
-	m.cursor = 0
+	m.cursor = m.stepCursor()
+	return m, nil
+}
+
+// back returns to the previous step. Every step records its choice in a field
+// of its own, so stepping back is only a step: nothing is discarded, and the
+// step comes up on the choice it already holds. The first step has nothing
+// behind it, where the key does nothing — cancelling the wizard on a key meant
+// to undo one step would throw away the answers the user came to correct.
+func (m setupModel) back() (tea.Model, tea.Cmd) {
+	if m.step <= stepRoots {
+		return m, nil
+	}
+	m.step--
+	m.cursor = m.stepCursor()
+	return m, nil
+}
+
+// stepCursor is the row the current step comes up on: the choice it already
+// holds, so a step looks the same whether it is entered going forward or
+// re-entered going back.
+func (m setupModel) stepCursor() int {
 	switch m.step {
 	case stepEditor:
-		m.cursor = m.editorIdx
+		return m.editorIdx
 	case stepAI:
-		m.cursor = m.aiIdx
+		return m.aiIdx
 	case stepShell:
 		if !m.writeShell {
-			m.cursor = 1
+			return 1 // option 1 = no
 		}
 	}
-	return m, nil
+	return 0
 }
 
 func (m setupModel) View() string {

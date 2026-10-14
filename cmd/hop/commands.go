@@ -27,12 +27,38 @@ func cmdScan(_ []string) {
 		}
 	}
 	fmt.Fprintln(os.Stderr, i18n.Tf("cli.scan_summary", len(idx.Projects), len(cats)))
-	removed, _ := core.PruneFrecency()
-	pins, _ := core.PrunePins()
-	extras, _ := core.PruneExtras()
-	if removed+pins+extras > 0 {
-		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins+extras))
+	// A prune failure is a warning here, not fatal: the scan is what the user
+	// asked for and it succeeded. But it is never silent either — a frecency
+	// table that can no longer be rewritten keeps ranking dead entries, and the
+	// user has to hear about it to go and fix the permissions.
+	pruned, err := pruneDeadPaths()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.prune_failed", err))
 	}
+	if pruned > 0 {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", pruned))
+	}
+}
+
+// pruneDeadPaths drops the frecency, pin and tracked-folder entries whose
+// directory no longer exists, returning how many went in total. It stops at the
+// first failure, so the count it returns on an error is what was actually
+// removed before it.
+//
+// `hop scan` and `hop clean` share it because they prune the same three stores;
+// running the sequence twice is how the two came to disagree about what a
+// failure means in the first place.
+func pruneDeadPaths() (int, error) {
+	removed, err := core.PruneFrecency()
+	if err != nil {
+		return removed, err
+	}
+	pins, err := core.PrunePins()
+	if err != nil {
+		return removed + pins, err
+	}
+	extras, err := core.PruneExtras()
+	return removed + pins + extras, err
 }
 
 // parseJumpBack parses "-", "-2", "-3" into the nth-most-recent index (n >= 1).
@@ -49,21 +75,14 @@ func parseJumpBack(arg string) (int, bool) {
 }
 
 // cmdClean prunes frecency, pin and tracked-folder entries whose directory no
-// longer exists.
+// longer exists. Pruning is all it does, so a failure is fatal, and the count is
+// printed even at zero: that line is the command's whole answer.
 func cmdClean(_ []string) {
-	removed, err := core.PruneFrecency()
+	pruned, err := pruneDeadPaths()
 	if err != nil {
 		fatal(err)
 	}
-	pins, err := core.PrunePins()
-	if err != nil {
-		fatal(err)
-	}
-	extras, err := core.PruneExtras()
-	if err != nil {
-		fatal(err)
-	}
-	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", removed+pins+extras))
+	fmt.Fprintln(os.Stderr, i18n.Tf("cli.pruned", pruned))
 }
 
 // cmdTrack adds folders to the search list so they appear even without a git

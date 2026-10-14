@@ -314,7 +314,7 @@ func (m setupModel) viewEditor(b *strings.Builder) {
 		return
 	}
 	for i, e := range m.editors {
-		m.viewRadio(b, i, e.Name+dimMuted(" ("+e.Bin+")"))
+		m.viewRadio(b, i, e.Name+dimStyle.Render(" ("+e.Bin+")"))
 	}
 	b.WriteString("\n" + dimStyle.Render(i18n.T("setup.hint.single")))
 }
@@ -374,9 +374,6 @@ func (m setupModel) viewConfirm(b *strings.Builder) {
 	}
 	b.WriteString("\n" + dimStyle.Render(i18n.T("setup.hint.confirm")))
 }
-
-// dimMuted is a tiny helper to dim a parenthetical suffix inside a label.
-func dimMuted(s string) string { return dimStyle.Render(s) }
 
 // ErrNoTTY reports that hop found no controlling terminal, so nothing was ever
 // drawn and the user was never asked anything. It is the one failure a caller

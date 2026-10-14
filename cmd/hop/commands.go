@@ -439,10 +439,26 @@ func cmdAdd(args []string) {
 	if core.HasControlChars(p) {
 		return // never index a path that could break the shell protocol
 	}
-	if !core.UnderRoots(p, cfg.Roots) {
-		return // only learn paths inside configured roots
+	if !core.UnderRoots(p, cfg.Roots) && !isTracked(p) {
+		return // only learn paths the index can hold: a root, or a tracked folder
 	}
 	_, _ = core.AddFrecency(p, time.Now(), false) // try-lock, best effort
+}
+
+// isTracked reports whether p is one of the folders `hop track` recorded. A
+// tracked folder is in the index just like a scanned one, so visiting it has to
+// earn frecency, or it would sort last among its matches forever.
+//
+// It reads extras.json, so cmdAdd only consults it once the roots test has
+// already failed: the shell hook calls `hop add` on every cd and the common case
+// — a path under a root — must stay the in-memory check it was.
+func isTracked(p string) bool {
+	for _, x := range core.LoadExtras().Paths {
+		if x == p {
+			return true
+		}
+	}
+	return false
 }
 
 // cmdPrompt prints the name of the project containing the current directory

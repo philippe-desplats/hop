@@ -15,7 +15,7 @@ type Config struct {
 func ScanConfig(s Settings) Config {
 	c := Config{MaxDepth: s.Scan.MaxDepth, Ignore: s.Scan.Ignore, Worktrees: s.Scan.Worktrees}
 	for _, r := range s.Scan.Roots {
-		c.Roots = append(c.Roots, expandHome(r))
+		c.Roots = append(c.Roots, ExpandHome(r))
 	}
 	return c
 }

@@ -106,25 +106,12 @@ func detectShell() (shell, rc, line string, known bool) {
 	}
 }
 
-// expandTilde resolves a leading ~ to the user's home directory.
-func expandTilde(p string) string {
-	if p == "~" || strings.HasPrefix(p, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			if p == "~" {
-				return home
-			}
-			return filepath.Join(home, p[2:])
-		}
-	}
-	return p
-}
-
 // shellAlreadyWired reports whether the rc file already sources hop, so setup
 // never offers to add a duplicate line. Only an active line counts: a commented
 // one wires nothing, and treating it as present would suppress the offer to add
 // the real line and then claim an integration the next shell will not have.
 func shellAlreadyWired(rc string) bool {
-	data, err := os.ReadFile(expandTilde(rc))
+	data, err := os.ReadFile(core.ExpandHome(rc))
 	if err != nil {
 		return false
 	}
@@ -143,7 +130,7 @@ func shellAlreadyWired(rc string) bool {
 // wireShell appends the integration line to the rc file (creating it and its
 // parent directory if needed), so the daily `p` function works on the next shell.
 func wireShell(rc, line string) error {
-	full := expandTilde(rc)
+	full := core.ExpandHome(rc)
 	if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
 		return err
 	}

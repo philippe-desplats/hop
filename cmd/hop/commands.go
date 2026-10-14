@@ -101,7 +101,7 @@ func trackOrUntrack(args []string, track bool) {
 	}
 	changed, failed := false, false
 	for _, arg := range args {
-		path := core.CanonicalDir(expandTilde(arg))
+		path := core.CanonicalDir(core.ExpandHome(arg))
 		if core.HasControlChars(path) {
 			fmt.Fprintln(os.Stderr, i18n.T("cli.unsafe_path"))
 			failed = true

@@ -23,8 +23,11 @@ func HasControlChars(s string) bool {
 	return strings.ContainsAny(s, "\n\r\x00")
 }
 
-// expandHome resolves a leading ~ to the user's home directory.
-func expandHome(p string) string {
+// ExpandHome resolves a leading ~ to the user's home directory. It is exported
+// because the CLI expands the same tildes as the config does — `hop track ~/x`
+// and `roots = ["~/x"]` have to land on the same path, which a second copy of
+// this function cannot guarantee past its next edit.
+func ExpandHome(p string) string {
 	if p == "~" || strings.HasPrefix(p, "~/") {
 		if home, err := os.UserHomeDir(); err == nil {
 			if p == "~" {

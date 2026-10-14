@@ -56,10 +56,28 @@ type setupModel struct {
 	confirmed bool
 }
 
+// editorIndex returns the index of the editor whose binary is bin, and 0 when
+// the list does not offer it.
+func editorIndex(editors []action.Editor, bin string) int {
+	for i, e := range editors {
+		if e.Bin == bin {
+			return i
+		}
+	}
+	return 0
+}
+
 // newSetupModel builds the wizard with sensible preselections: every folder that
 // holds at least one repo is checked (or the first folder when none do), the
-// first detected editor is chosen, the assistant defaults to "auto", and wiring
-// the shell integration is offered (default yes) unless it is already present.
+// editor and the assistant come up on the values the settings already hold, and
+// wiring the shell integration is offered (default yes) unless it is already
+// present.
+//
+// Starting the editor and the assistant from the loaded settings is what makes
+// re-running setup non-destructive: settings() writes back whatever is
+// preselected, so coming up on the first detected editor and on "auto" would
+// replace a configured editor and assistant with detected ones. A first run has
+// nothing to preserve and falls back to exactly that.
 func newSetupModel(in SetupInput) setupModel {
 	sel := make([]bool, len(in.Roots))
 	any := false
@@ -73,12 +91,15 @@ func newSetupModel(in SetupInput) setupModel {
 		sel[0] = true
 	}
 	aiOptions := append([]string{"auto"}, in.Assistants...)
+	aiIdx, _ := indexOf(aiOptions, in.Settings.AI.Tool)
 	return setupModel{
 		base:         in.Settings,
 		roots:        in.Roots,
 		rootSel:      sel,
 		editors:      in.Editors,
+		editorIdx:    editorIndex(in.Editors, in.Settings.Actions.Editor),
 		aiOptions:    aiOptions,
+		aiIdx:        aiIdx,
 		shellName:    in.ShellName,
 		rcLabel:      in.RcLabel,
 		alreadyWired: in.AlreadyWired,

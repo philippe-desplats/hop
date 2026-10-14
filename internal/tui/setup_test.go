@@ -30,11 +30,76 @@ func TestNewSetupModelPreselectsReposAndDefaults(t *testing.T) {
 	if len(s.Scan.Roots) != 1 || s.Scan.Roots[0] != "~/code" {
 		t.Errorf("roots = %v, want [~/code]", s.Scan.Roots)
 	}
-	if s.Actions.Editor != "cursor" {
-		t.Errorf("editor = %q, want cursor", s.Actions.Editor)
+	// The base settings configure "zed", which the detected list offers second:
+	// the wizard must come up on it rather than on the first detected editor.
+	if s.Actions.Editor != "zed" {
+		t.Errorf("editor = %q, want the configured zed", s.Actions.Editor)
 	}
 	if s.AI.Tool != "auto" {
 		t.Errorf("ai = %q, want auto", s.AI.Tool)
+	}
+}
+
+// A re-run of the wizard must come up on the editor and the assistant the user
+// already configured. settings() writes back whatever is preselected, so coming
+// up on the first detected editor and on "auto" replaces chosen values with
+// detected ones — and README documents re-running setup as supported.
+func TestNewSetupModelPreselectsTheConfiguredEditorAndAssistant(t *testing.T) {
+	base := core.DefaultSettings()
+	base.Actions.Editor, base.AI.Tool = "nvim", "codex"
+	m := newSetupModel(SetupInput{
+		Settings:   base,
+		Roots:      []core.RootCandidate{{Path: "~/code", Repos: 3}},
+		Editors:    []action.Editor{{Name: "Cursor", Bin: "cursor"}, {Name: "Neovim", Bin: "nvim"}},
+		Assistants: []string{"claude", "codex"},
+	})
+
+	s := m.settings()
+	if s.Actions.Editor != "nvim" {
+		t.Errorf("editor = %q, want the configured nvim", s.Actions.Editor)
+	}
+	if s.AI.Tool != "codex" {
+		t.Errorf("ai = %q, want the configured codex", s.AI.Tool)
+	}
+}
+
+// With nothing configured yet there is nothing to preserve, so the wizard keeps
+// its first-run preselections.
+func TestNewSetupModelFirstRunTakesTheFirstDetectedEditor(t *testing.T) {
+	m := newSetupModel(SetupInput{
+		Settings:   core.Settings{}, // a config hop has never written
+		Roots:      []core.RootCandidate{{Path: "~/code", Repos: 1}},
+		Editors:    []action.Editor{{Name: "Cursor", Bin: "cursor"}, {Name: "Zed", Bin: "zed"}},
+		Assistants: []string{"claude"},
+	})
+
+	s := m.settings()
+	if s.Actions.Editor != "cursor" {
+		t.Errorf("editor = %q, want the first detected cursor", s.Actions.Editor)
+	}
+	if s.AI.Tool != "auto" {
+		t.Errorf("ai = %q, want auto", s.AI.Tool)
+	}
+}
+
+// A configured editor the wizard cannot offer — not on PATH, so not detected —
+// cannot be preselected: the cursor lands on the first offered editor, and
+// confirming the step replaces the configured binary with that one. The step
+// shows the replacement, which is the only thing standing between the user and
+// losing the value; this test pins the fallback, not an endorsement of it.
+func TestNewSetupModelFallsBackWhenTheConfiguredEditorIsNotDetected(t *testing.T) {
+	base := core.DefaultSettings()
+	base.Actions.Editor = "emacs"
+	m := newSetupModel(SetupInput{
+		Settings: base,
+		Editors:  []action.Editor{{Name: "Cursor", Bin: "cursor"}, {Name: "Zed", Bin: "zed"}},
+	})
+
+	if m.editorIdx != 0 {
+		t.Errorf("editorIdx = %d, want the 0 fallback for an undetected editor", m.editorIdx)
+	}
+	if got := m.settings().Actions.Editor; got != "cursor" {
+		t.Errorf("editor = %q, want the fallback cursor", got)
 	}
 }
 

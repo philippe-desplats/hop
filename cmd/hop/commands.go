@@ -552,8 +552,9 @@ func cmdConfig(_ []string) {
 	}
 	s := core.LoadSettings()
 	edited, saved, err := tui.RunConfig(s)
-	if err != nil { // no tty: print current config instead
-		printSettings(s)
+	if err != nil {
+		fatalUnlessNoTTY(err)
+		printSettings(s) // no tty: print the current config instead
 		return
 	}
 	if saved {

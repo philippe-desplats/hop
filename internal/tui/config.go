@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"os"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -293,12 +293,16 @@ func (m configModel) View() string {
 }
 
 // RunConfig shows the settings editor on the controlling terminal and returns
-// the edited settings plus whether the user asked to save. err is non-nil when
-// there is no tty (caller should fall back to printing).
+// the edited settings plus whether the user asked to save.
+//
+// An error wrapping ErrNoTTY means there is no terminal and the editor was never
+// shown, so the caller may fall back to printing the settings. Any other error
+// comes from the running program, after the editor was on screen: the caller must
+// report the failure instead of treating it as a run that simply saved nothing.
 func RunConfig(s core.Settings) (edited core.Settings, saved bool, err error) {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	tty, err := openTTY()
 	if err != nil {
-		return s, false, err
+		return s, false, fmt.Errorf("%w: %w", ErrNoTTY, err)
 	}
 	defer func() { _ = tty.Close() }()
 	setupColors(tty, s.UI.Theme)
@@ -310,6 +314,8 @@ func RunConfig(s core.Settings) (edited core.Settings, saved bool, err error) {
 		tea.WithAltScreen(),
 	).Run()
 	if err != nil {
+		// Returned as it came: a program that failed with the editor on screen is
+		// not a user who chose to save nothing.
 		return s, false, err
 	}
 	fm, _ := final.(configModel)

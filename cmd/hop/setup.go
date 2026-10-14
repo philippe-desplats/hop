@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,7 +33,9 @@ func cmdSetup(_ []string) {
 		RcLabel:      rc,
 		AlreadyWired: wired,
 	})
-	if err != nil { // no tty: apply preset defaults, never touch the rc unprompted
+	if err != nil {
+		fatalUnlessNoTTY(err)
+		// No tty: apply preset defaults, never touch the rc unprompted.
 		edited, confirmed, writeShell = presetSettings(settings, roots, editors, nil), true, false
 	}
 	if !confirmed {
@@ -55,6 +58,19 @@ func cmdSetup(_ []string) {
 		}
 	}
 	printSetupSummary(idx, rc, line, wired, wroteShell, knownShell)
+}
+
+// fatalUnlessNoTTY ends the process unless err is hop finding no controlling
+// terminal. The tui runners fail for two unrelated reasons, and only one of them
+// leaves the caller free to decide for the user: ErrNoTTY means nothing was ever
+// drawn, so a preset or a printed listing is a fair answer. Any other error comes
+// from a program that failed with the screen up, so the user had already started
+// answering; carrying on would discard their answers and write a configuration
+// they never saw, while reporting success.
+func fatalUnlessNoTTY(err error) {
+	if !errors.Is(err, tui.ErrNoTTY) {
+		fatal(err)
+	}
 }
 
 // presetSettings folds auto-detected defaults onto settings without prompting:

@@ -3,12 +3,16 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/philippe-desplats/hop/internal/tui"
 )
 
 // configToml holds a value per field the config editor exposes, each one
@@ -94,6 +98,61 @@ func TestCmdConfigSubprocess(t *testing.T) {
 		}
 	}
 }
+
+// The two TUI failures hop can meet are answered differently: a missing
+// terminal lets the command carry on non-interactively, anything else is a
+// failure that happened with the screen up, so the command must report it and
+// exit non-zero rather than write a configuration on the user's behalf. The
+// decision ends in os.Exit, so it is measured in a child process.
+func TestFatalUnlessNoTTY(t *testing.T) {
+	switch os.Getenv("HOP_NOTTY_CHILD") {
+	case "other":
+		fatalUnlessNoTTY(errors.New("renderer failure"))
+		fmt.Fprintln(os.Stderr, reachedFallback)
+		os.Exit(0)
+	case "notty":
+		fatalUnlessNoTTY(fmt.Errorf("%w: open /dev/tty: no such device", tui.ErrNoTTY))
+		fmt.Fprintln(os.Stderr, reachedFallback)
+		os.Exit(0)
+	}
+
+	for _, tc := range []struct {
+		name, child  string
+		wantExit     int
+		wantFallback bool
+	}{
+		{"a failure that is not a missing tty", "other", 1, false},
+		{"a missing tty", "notty", 0, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			cmd := exec.Command(os.Args[0], "-test.run=TestFatalUnlessNoTTY")
+			cmd.Env = []string{
+				"HOP_NOTTY_CHILD=" + tc.child,
+				"HOME=" + t.TempDir(),
+				"XDG_CONFIG_HOME=" + configDir,
+				"GOCOVERDIR=" + t.TempDir(),
+			}
+			out, err := cmd.CombinedOutput()
+			if got := cmd.ProcessState.ExitCode(); got != tc.wantExit {
+				t.Errorf("exit = %d (%v), want %d\n%s", got, err, tc.wantExit, out)
+			}
+			if got := strings.Contains(string(out), reachedFallback); got != tc.wantFallback {
+				t.Errorf("fallback reached = %v, want %v\n%s", got, tc.wantFallback, out)
+			}
+			if !tc.wantFallback && !strings.Contains(string(out), "renderer failure") {
+				t.Errorf("the failure must be reported to the user, got:\n%s", out)
+			}
+			if _, err := os.Stat(filepath.Join(configDir, "hop", "config.toml")); err == nil {
+				t.Error("nothing may be written while deciding what a TUI error means")
+			}
+		})
+	}
+}
+
+// reachedFallback is what a child prints when it survived the decision, i.e.
+// when hop judged the error harmless enough to carry on without a terminal.
+const reachedFallback = "reached the non-interactive fallback"
 
 // lineHas reports whether a single output line mentions both the field and its
 // value, so the assertion survives a change of layout but not a missing field.

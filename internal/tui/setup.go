@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -349,14 +350,30 @@ func (m setupModel) viewConfirm(b *strings.Builder) {
 // dimMuted is a tiny helper to dim a parenthetical suffix inside a label.
 func dimMuted(s string) string { return dimStyle.Render(s) }
 
+// ErrNoTTY reports that hop found no controlling terminal, so nothing was ever
+// drawn and the user was never asked anything. It is the one failure a caller
+// may answer on the user's behalf — by printing, or by a non-interactive preset
+// — which is exactly why it has to be told apart from a failure that happened
+// once the screen was up and the user had started answering.
+var ErrNoTTY = errors.New("no controlling terminal")
+
+// openTTY opens the controlling terminal. It is a variable because nothing a
+// test does can make /dev/tty unopenable, and the two error paths of the
+// runners below are only worth having if they can be told apart under test.
+var openTTY = func() (*os.File, error) { return os.OpenFile("/dev/tty", os.O_RDWR, 0) }
+
 // RunSetup shows the first-run wizard on the controlling terminal and returns the
 // edited settings, whether the user confirmed, and whether they asked to wire the
-// shell integration. err is non-nil when there is no tty, so the caller can fall
-// back to a non-interactive preset.
+// shell integration.
+//
+// An error wrapping ErrNoTTY means there is no terminal and the wizard was never
+// shown, so the caller may fall back to a non-interactive preset. Any other error
+// comes from the running program, after the wizard was on screen: what the user
+// did is lost, and the caller must report the failure rather than decide for them.
 func RunSetup(in SetupInput) (edited core.Settings, confirmed, writeShell bool, err error) {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	tty, err := openTTY()
 	if err != nil {
-		return in.Settings, false, false, err
+		return in.Settings, false, false, fmt.Errorf("%w: %w", ErrNoTTY, err)
 	}
 	defer func() { _ = tty.Close() }()
 	setupColors(tty, in.Settings.UI.Theme)
@@ -368,6 +385,8 @@ func RunSetup(in SetupInput) (edited core.Settings, confirmed, writeShell bool, 
 		tea.WithAltScreen(),
 	).Run()
 	if err != nil {
+		// Returned as it came: wrapping ErrNoTTY here would tell the caller it
+		// may write a preset over a configuration the user was in the middle of.
 		return in.Settings, false, false, err
 	}
 	fm, _ := final.(setupModel)

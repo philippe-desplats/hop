@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -186,6 +188,64 @@ func TestSetupRootsStepAdvancesWhenThereIsNothingToChoose(t *testing.T) {
 	if got := m.(setupModel).step; got != stepEditor {
 		t.Fatalf("step = %d, want stepEditor (%d) when no folder was found", got, stepEditor)
 	}
+}
+
+// RunSetup and RunConfig fail for two unrelated reasons: there is no terminal
+// to draw on, which the caller can answer non-interactively, and the program
+// itself failed after the screen was up, which means what the user did is lost.
+// Reporting the second as the first is how cmd/hop came to overwrite a config
+// with a preset the user never saw, and to exit 0 on a crash.
+func TestRunnersReportAMissingTTYApartFromAnyOtherFailure(t *testing.T) {
+	t.Run("no tty", func(t *testing.T) {
+		stubTTY(t, func() (*os.File, error) { return nil, errors.New("open /dev/tty: device not configured") })
+
+		if _, _, _, err := RunSetup(SetupInput{Settings: core.DefaultSettings()}); !errors.Is(err, ErrNoTTY) {
+			t.Errorf("RunSetup err = %v, want it to wrap ErrNoTTY", err)
+		}
+		if _, _, err := RunConfig(core.DefaultSettings()); !errors.Is(err, ErrNoTTY) {
+			t.Errorf("RunConfig err = %v, want it to wrap ErrNoTTY", err)
+		}
+	})
+
+	// A tty that opens and a program that then fails: the error must not claim
+	// the terminal was missing, because the caller answers that one by writing a
+	// configuration of its own.
+	t.Run("program failure", func(t *testing.T) {
+		stubTTY(t, func() (*os.File, error) {
+			f, err := os.Open(os.DevNull) // opens, but reading input returns EOF at once
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := f.Close(); err != nil { // closed: bubbletea cannot read from it
+				t.Fatal(err)
+			}
+			return f, nil
+		})
+
+		_, _, _, err := RunSetup(SetupInput{Settings: core.DefaultSettings()})
+		if err == nil {
+			t.Fatal("RunSetup must fail when its program cannot run")
+		}
+		if errors.Is(err, ErrNoTTY) {
+			t.Errorf("RunSetup err = %v, must not be reported as a missing tty", err)
+		}
+		_, _, err = RunConfig(core.DefaultSettings())
+		if err == nil {
+			t.Fatal("RunConfig must fail when its program cannot run")
+		}
+		if errors.Is(err, ErrNoTTY) {
+			t.Errorf("RunConfig err = %v, must not be reported as a missing tty", err)
+		}
+	})
+}
+
+// stubTTY substitutes how the runners reach the controlling terminal, which no
+// test can make unopenable on its own, and restores it afterwards.
+func stubTTY(t *testing.T, open func() (*os.File, error)) {
+	t.Helper()
+	previous := openTTY
+	openTTY = open
+	t.Cleanup(func() { openTTY = previous })
 }
 
 // uncheckEveryRoot walks the roots step and toggles off every checked folder,

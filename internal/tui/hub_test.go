@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/philippe-desplats/hop/internal/action"
 	"github.com/philippe-desplats/hop/internal/core"
@@ -196,6 +197,83 @@ func TestHubSanitizesActionMenu(t *testing.T) {
 	menu := m.viewActions()
 	if strings.Contains(menu, "\x1b[2J") {
 		t.Errorf("action menu leaks a screen-clear escape: %q", menu)
+	}
+}
+
+func TestFit(t *testing.T) {
+	const disp = "work/acme/platform/services/billing/internal/handlers/subscription-renewal-worker"
+	cases := []struct {
+		in   string
+		w    int
+		want string
+	}{
+		{"work/ops-tools", 76, "work/ops-tools"}, // fits: returned as is
+		{"work/ops-tools", 14, "work/ops-tools"}, // exactly fits
+		{disp, 36, "work/acme/pl…cription-renewal-worker"},
+		{disp, 10, "wor…worker"},
+		{disp, 2, "w…"},
+		{disp, 1, "…"},
+		{disp, 0, ""},
+		// Wide runes are counted in columns, not in runes.
+		{"work/café/☕☕☕☕☕☕☕☕/projet-émoji", 20, "work/ca…projet-émoji"},
+	}
+	for _, tc := range cases {
+		got := fit(tc.in, tc.w)
+		if got != tc.want {
+			t.Errorf("fit(%q, %d) = %q, want %q", tc.in, tc.w, got, tc.want)
+		}
+		if w := lipgloss.Width(got); w > tc.w {
+			t.Errorf("fit(%q, %d) is %d columns wide", tc.in, tc.w, w)
+		}
+	}
+}
+
+func TestHubRowStaysOneLine(t *testing.T) {
+	const long = "/p/work/acme/platform/services/billing/internal/handlers/subscription-renewal-worker"
+	projects := []core.Project{
+		{Name: "subscription-renewal-worker", Path: long, Category: "work"},
+		{Name: "ops-tools", Path: "/p/work/ops-tools", Category: "work"},
+	}
+	m := newModel(projects, &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	i := matchIndex(m, long)
+	if i < 0 {
+		t.Fatalf("project %q is not in the match list", long)
+	}
+	for _, width := range []int{80, 60, 40} {
+		for _, sel := range []bool{true, false} {
+			m.width = width
+			m.cursor = i
+			if !sel {
+				m.cursor = (i + 1) % len(m.matches)
+			}
+			row := m.renderRow(i)
+			if n := strings.Count(row, "\n"); n != 0 {
+				t.Errorf("width %d selected=%v: row spans %d extra lines: %q", width, sel, n, row)
+			}
+			if got, max := len([]rune(stripANSI(row))), m.contentWidth(); got > max {
+				t.Errorf("width %d selected=%v: row is %d runes, content width is %d: %q", width, sel, got, max, row)
+			}
+		}
+	}
+}
+
+// TestHubShortPathRendersUnchanged pins the no-op case: a path that fits must go
+// through the row renderer exactly as it did before truncation existed.
+func TestHubShortPathRendersUnchanged(t *testing.T) {
+	m := newModel(sample(), &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+	i := matchIndex(m, "/p/work/ops-tools")
+	if i < 0 {
+		t.Fatal("ops-tools is not in the match list")
+	}
+	disp := core.DisplayPath("/p/work/ops-tools", []string{"/p"})
+
+	m.cursor = i
+	if got, want := m.renderRow(i), m.renderSelected(disp, nil); got != want {
+		t.Errorf("selected row = %q, want %q", got, want)
+	}
+	m.cursor = (i + 1) % len(m.matches)
+	if got, want := m.renderRow(i), "    "+styledPath(disp, "work", nil); got != want {
+		t.Errorf("row = %q, want %q", got, want)
 	}
 }
 

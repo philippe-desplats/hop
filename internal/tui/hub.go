@@ -405,9 +405,52 @@ func sanitize(s string) string {
 	}, s)
 }
 
+// rowGutter is the width of the 4-column prefix every row carries: the pin
+// marker on a plain row, the "▸" arrow on the selected one.
+const rowGutter = 4
+
+// fit shortens s to w terminal columns, eliding the middle with an ellipsis so
+// the trailing project name — the part the user reads — survives. The Hub
+// writes exactly one line per row and budgets its viewport that way, while
+// lipgloss treats a style width as a wrap width: without this, a deep path
+// wraps onto a second full-width bar, rows below it shift as the cursor moves,
+// and the footer falls off the bottom of the screen.
+func fit(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= w {
+		return s
+	}
+	if w == 1 {
+		return "…"
+	}
+	r := []rune(s)
+	tailBudget := (w - 1) * 2 / 3 // keep the name, drop the middle of the path
+	headBudget := w - 1 - tailBudget
+	head, used := 0, 0
+	for head < len(r) {
+		cw := lipgloss.Width(string(r[head]))
+		if used+cw > headBudget {
+			break
+		}
+		used += cw
+		head++
+	}
+	tail := len(r)
+	for used = 0; tail > head; tail-- {
+		cw := lipgloss.Width(string(r[tail-1]))
+		if used+cw > tailBudget {
+			break
+		}
+		used += cw
+	}
+	return string(r[:head]) + "…" + string(r[tail:])
+}
+
 func (m model) renderRow(i int) string {
 	p := m.matches[i].Project
-	disp := sanitize(core.DisplayPath(p.Path, m.roots))
+	disp := fit(sanitize(core.DisplayPath(p.Path, m.roots)), m.contentWidth()-rowGutter)
 	kws := strings.Fields(strings.ToLower(m.query))
 	if i == m.cursor {
 		return m.renderSelected(disp, kws)

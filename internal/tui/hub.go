@@ -346,10 +346,10 @@ func (m model) viewList() string {
 	b.WriteString("\n  " + promptStyle.Render("hop") + dimStyle.Render(" ❯ ") + m.query + selStyle.Render("▏"))
 	b.WriteString("   " + countStyle.Render(fmt.Sprintf("%d/%d", len(m.matches), len(m.projects))) + "\n\n")
 
-	visible := m.height - 9
-	if visible < 1 {
-		visible = 10
-	}
+	// The viewport is the terminal height minus the surrounding chrome. A height
+	// too small for even one row clamps down to that one row, so the cursor stays
+	// visible: jumping to 10 would draw nearly twice the lines a short split has.
+	visible := max(m.height-9, 1)
 	start := 0
 	if m.cursor >= visible {
 		start = m.cursor - visible + 1

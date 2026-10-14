@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -274,6 +275,48 @@ func TestHubShortPathRendersUnchanged(t *testing.T) {
 	m.cursor = (i + 1) % len(m.matches)
 	if got, want := m.renderRow(i), "    "+styledPath(disp, "work", nil); got != want {
 		t.Errorf("row = %q, want %q", got, want)
+	}
+}
+
+// hubFloorLines is the smallest view the Hub can draw: its chrome (header, the
+// two blank lines, separator, git preview, key hints) is 7 fixed lines, plus
+// the one row it always keeps so the cursor stays visible. A height below that
+// cannot be honoured without dropping the chrome, which this ticket does not
+// touch; what matters is that a short terminal no longer gets 10 rows.
+const hubFloorLines = 8
+
+func TestHubVisibleRowsRespectHeight(t *testing.T) {
+	var projects []core.Project
+	for i := 0; i < 30; i++ {
+		projects = append(projects, core.Project{
+			Name:     fmt.Sprintf("p%02d", i),
+			Path:     fmt.Sprintf("/p/work/p%02d", i),
+			Category: "work",
+		})
+	}
+	m := newModel(projects, &core.Frecency{}, []string{"/p"}, "tab", action.Options{}, core.DefaultWeights())
+
+	lines := func(h int) int {
+		m.height = h
+		return strings.Count(stripANSI(m.viewList()), "\n") + 1
+	}
+	for h := 1; h <= 12; h++ {
+		if got, max := lines(h), max(h, hubFloorLines); got > max {
+			t.Errorf("height %d renders %d lines, want at most %d", h, got, max)
+		}
+	}
+	// A short terminal must get fewer rows than a taller one, never more.
+	tall := lines(12)
+	for h := 1; h <= 9; h++ {
+		if got := lines(h); got >= tall {
+			t.Errorf("height %d renders %d lines, height 12 renders %d: short terminals must get fewer rows", h, got, tall)
+		}
+	}
+	// Heights at or above 10 keep today's behaviour exactly.
+	for h, want := range map[int]int{10: 8, 11: 9, 12: 10} {
+		if got := lines(h); got != want {
+			t.Errorf("height %d renders %d lines, want %d", h, got, want)
+		}
 	}
 }
 

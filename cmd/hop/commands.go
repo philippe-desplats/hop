@@ -512,8 +512,7 @@ func cmdConfig(_ []string) {
 	s := core.LoadSettings()
 	edited, saved, err := tui.RunConfig(s)
 	if err != nil { // no tty: print current config instead
-		fmt.Println(core.ConfigPath())
-		fmt.Printf("action_access = %q\n", s.Hub.ActionAccess)
+		printSettings(s)
 		return
 	}
 	if saved {
@@ -522,6 +521,34 @@ func cmdConfig(_ []string) {
 		}
 		fmt.Fprintln(os.Stderr, i18n.Tf("cli.config_saved", core.ConfigPath()))
 	}
+}
+
+// printSettings lists every field the config editor exposes, in the order the
+// editor shows them, under the path of the file holding them. It is what a user
+// without a terminal gets instead of the editor, so printing one field would
+// leave them knowing nothing about their editor, their roots or their language.
+// The values are rendered as the TOML they came from, so a line can be pasted
+// straight back into config.toml.
+func printSettings(s core.Settings) {
+	fmt.Println(core.ConfigPath())
+	fmt.Printf("command = %q\n", s.Shell.Command)
+	fmt.Printf("action_access = %q\n", s.Hub.ActionAccess)
+	fmt.Printf("editor = %q\n", s.Actions.Editor)
+	fmt.Printf("show_tmux = %t\n", s.Actions.ShowTmux)
+	fmt.Printf("roots = %s\n", tomlList(s.Scan.Roots))
+	fmt.Printf("max_depth = %d\n", s.Scan.MaxDepth)
+	fmt.Printf("ignore = %s\n", tomlList(s.Scan.Ignore))
+	fmt.Printf("language = %q\n", s.UI.Language)
+	fmt.Printf("theme = %q\n", s.UI.Theme)
+}
+
+// tomlList renders a string slice as a TOML array of quoted strings.
+func tomlList(vals []string) string {
+	quoted := make([]string, len(vals))
+	for i, v := range vals {
+		quoted[i] = fmt.Sprintf("%q", v)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 func cmdDoctor(_ []string) {

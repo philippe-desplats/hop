@@ -176,6 +176,45 @@ Daily, after  eval "$(hop init zsh)"  in ~/.zshrc:
   p -                    go back to the previous project
   p                      open the interactive Hub (fuzzy list, Enter = cd)
 `,
+		"cli.help.setup": `hop setup · guided first-run setup
+
+Usage:
+  hop setup
+
+What it detects, and asks you to confirm:
+  project folders   candidates under your home, with the repo count of each
+  editor            the command the "open in editor" action launches
+  AI assistant      the tool behind the Hub's c and r keys
+
+It then writes the config file, builds the project index, and offers to add one
+line to your shell startup file (~/.zshrc, ~/.bashrc or the fish config) so the
+daily p function is loaded by every new shell. Nothing is appended to that file
+unless you accept, and the summary prints the line either way.
+
+Without an interactive terminal it skips the questions, saves the detected
+defaults, and never touches your shell startup file.
+
+Run hop config later to change any of it.
+`,
+		"cli.help.init": `hop init · shell integration
+
+Usage:
+  hop init [zsh|bash|fish] [--cmd NAME]
+
+Prints the shell function to evaluate from your startup file. It is what
+performs the cd: a child process cannot change its parent shell's directory,
+so hop prints and the function acts. The supported shells are zsh, bash and
+fish, and zsh is used when none is given.
+
+  ~/.zshrc                      eval "$(hop init zsh)"
+  ~/.bashrc                     eval "$(hop init bash)"
+  ~/.config/fish/config.fish    hop init fish | source
+
+The function is named p. --cmd NAME (or --cmd=NAME) renames it, as in
+hop init zsh --cmd proj. A name is letters, digits and _ only, not starting
+with a digit, and not the name of a shell. Set command under [shell] in the
+config file to make a new name the default.
+`,
 	},
 	FR: {
 		"hub.hint.tab":     "↑↓ naviguer · entrée cd · tab actions · échap annuler",
@@ -349,6 +388,46 @@ Au quotidien, après  eval "$(hop init zsh)"  dans ~/.zshrc :
   p <mot-clé> <mot-clé>  affine par sous-chemin (ex. p acme web)
   p -                    revient au projet précédent
   p                      ouvre le Hub interactif (liste fuzzy, Entrée = cd)
+`,
+		"cli.help.setup": `hop setup · configuration guidée au premier lancement
+
+Usage:
+  hop setup
+
+Ce qu'il détecte, et te fait confirmer :
+  dossiers projets  les candidats sous ton home, avec leur nombre de dépôts
+  éditeur           la commande lancée par l'action "ouvrir dans l'éditeur"
+  assistant IA      l'outil derrière les touches c et r du Hub
+
+Il écrit ensuite le fichier de config, construit l'index des projets, et
+propose d'ajouter une ligne à ton fichier de démarrage shell (~/.zshrc,
+~/.bashrc ou la config fish) pour que la fonction p du quotidien soit chargée
+par chaque nouveau shell. Rien n'est ajouté à ce fichier sans ton accord, et le
+résumé affiche la ligne dans les deux cas.
+
+Sans terminal interactif, il saute les questions, enregistre les valeurs
+détectées, et ne touche pas à ton fichier de démarrage shell.
+
+hop config permet de tout modifier ensuite.
+`,
+		"cli.help.init": `hop init · intégration shell
+
+Usage:
+  hop init [zsh|bash|fish] [--cmd NOM]
+
+Imprime la fonction shell à évaluer depuis ton fichier de démarrage. C'est elle
+qui fait le cd : un processus fils ne peut pas changer le répertoire de son
+shell parent, donc hop imprime et la fonction agit. Les shells supportés sont
+zsh, bash et fish, et zsh est utilisé si aucun n'est donné.
+
+  ~/.zshrc                      eval "$(hop init zsh)"
+  ~/.bashrc                     eval "$(hop init bash)"
+  ~/.config/fish/config.fish    hop init fish | source
+
+La fonction s'appelle p. --cmd NOM (ou --cmd=NOM) la renomme, par exemple
+hop init zsh --cmd proj. Un nom ne contient que lettres, chiffres et _, ne
+commence pas par un chiffre, et n'est pas un nom de shell. Renseigne command
+dans la section [shell] du fichier de config pour en faire le nom par défaut.
 `,
 	},
 	ES: {
@@ -524,6 +603,46 @@ A diario, tras  eval "$(hop init zsh)"  en ~/.zshrc:
   p -                    vuelve al proyecto anterior
   p                      abre el Hub interactivo (lista fuzzy, Enter = cd)
 `,
+		"cli.help.setup": `hop setup · configuración guiada inicial
+
+Uso:
+  hop setup
+
+Lo que detecta, y te pide confirmar:
+  carpetas proyecto los candidatos bajo tu home, con su número de repos
+  editor            el comando que lanza la acción "abrir en el editor"
+  asistente IA      la herramienta detrás de las teclas c y r del Hub
+
+Después escribe el archivo de configuración, construye el índice de proyectos y
+ofrece añadir una línea a tu archivo de inicio del shell (~/.zshrc, ~/.bashrc o
+la configuración de fish) para que la función p del día a día se cargue en cada
+shell nuevo. Nada se añade a ese archivo sin tu acuerdo, y el resumen imprime la
+línea en ambos casos.
+
+Sin terminal interactiva se salta las preguntas, guarda los valores detectados y
+no toca tu archivo de inicio del shell.
+
+Ejecuta hop config más tarde para cambiar cualquier cosa.
+`,
+		"cli.help.init": `hop init · integración del shell
+
+Uso:
+  hop init [zsh|bash|fish] [--cmd NOMBRE]
+
+Imprime la función del shell que debes evaluar desde tu archivo de inicio. Es
+ella la que hace el cd: un proceso hijo no puede cambiar el directorio de su
+shell padre, así que hop imprime y la función actúa. Los shells soportados son
+zsh, bash y fish, y se usa zsh si no se indica ninguno.
+
+  ~/.zshrc                      eval "$(hop init zsh)"
+  ~/.bashrc                     eval "$(hop init bash)"
+  ~/.config/fish/config.fish    hop init fish | source
+
+La función se llama p. --cmd NOMBRE (o --cmd=NOMBRE) la renombra, por ejemplo
+hop init zsh --cmd proj. Un nombre solo lleva letras, dígitos y _, no empieza
+por un dígito y no es un nombre de shell. Define command en la sección [shell]
+del archivo de configuración para que ese nombre sea el predeterminado.
+`,
 	},
 	PT: {
 		"hub.hint.tab":     "↑↓ navegar · enter cd · tab ações · esc cancelar",
@@ -697,6 +816,46 @@ No dia a dia, após  eval "$(hop init zsh)"  em ~/.zshrc:
   p <palavra> <palavra>  refina por sub-caminho (ex. p acme web)
   p -                    volta ao projeto anterior
   p                      abre o Hub interativo (lista fuzzy, Enter = cd)
+`,
+		"cli.help.setup": `hop setup · configuração guiada inicial
+
+Uso:
+  hop setup
+
+O que ele detecta, e pede para você confirmar:
+  pastas de projeto os candidatos sob o seu home, com o número de repos de cada
+  editor            o comando que a ação "abrir no editor" lança
+  assistente IA     a ferramenta por trás das teclas c e r do Hub
+
+Depois ele escreve o arquivo de configuração, constrói o índice de projetos e
+oferece adicionar uma linha ao seu arquivo de inicialização do shell (~/.zshrc,
+~/.bashrc ou a configuração do fish) para que a função p do dia a dia seja
+carregada em cada novo shell. Nada é adicionado a esse arquivo sem a sua
+autorização, e o resumo imprime a linha nos dois casos.
+
+Sem terminal interativo ele pula as perguntas, salva os valores detectados e não
+toca no seu arquivo de inicialização do shell.
+
+Execute hop config depois para mudar qualquer coisa.
+`,
+		"cli.help.init": `hop init · integração do shell
+
+Uso:
+  hop init [zsh|bash|fish] [--cmd NOME]
+
+Imprime a função de shell a ser avaliada a partir do seu arquivo de
+inicialização. É ela que faz o cd: um processo filho não pode mudar o diretório
+do seu shell pai, então o hop imprime e a função age. Os shells suportados são
+zsh, bash e fish, e zsh é usado quando nenhum é informado.
+
+  ~/.zshrc                      eval "$(hop init zsh)"
+  ~/.bashrc                     eval "$(hop init bash)"
+  ~/.config/fish/config.fish    hop init fish | source
+
+A função se chama p. --cmd NOME (ou --cmd=NOME) a renomeia, por exemplo
+hop init zsh --cmd proj. Um nome tem apenas letras, dígitos e _, não começa por
+um dígito e não é um nome de shell. Defina command na seção [shell] do arquivo
+de configuração para tornar o novo nome o padrão.
 `,
 	},
 }

@@ -56,12 +56,21 @@ homebrew_casks:
     # The binaries are ad-hoc signed (Go linker) but not notarized, so a clean
     # machine's Gatekeeper rejects them once Homebrew has flagged the download
     # with com.apple.quarantine. Strip that flag on install so the CLI runs.
-    hooks:
-      post:
-        install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/hop"]
-          end
+    #
+    # Declared as a postflight_steps block rather than a post-install hook: the
+    # hook is rendered as the `postflight` stanza, which Homebrew deprecated (a
+    # warning on a normal install, a hard failure under HOMEBREW_DEVELOPER=1).
+    # The declarative step has no way to test a condition, so the old `xattr -h`
+    # probe is gone: a cask only ever installs on macOS, where /usr/bin/xattr is
+    # part of the base system. The staged_path token below is wrapped in a string
+    # action so GoReleaser's own template engine emits it verbatim and Homebrew
+    # is the one that expands it.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{staged_path}}" }}/hop"]
+        end
+      end
     # Shown right after `brew install`: point the user at the guided setup, which
     # prints the exact shell-integration line for their shell.
     caveats: |

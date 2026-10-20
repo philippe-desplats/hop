@@ -213,6 +213,64 @@ func TestDoctorStateFlagsSymlinksWithoutFollowingThem(t *testing.T) {
 	}
 }
 
+// TestDoctorStateEscapesPlantedNames closes the hole the report would otherwise
+// open by existing. The name of an entry in the state directory is chosen by
+// whoever can write that directory, and a directory another account can write is
+// precisely what these lines are here to denounce. A name carrying ESC [1A and
+// CR moves the cursor back over the verdicts already printed and rewrites them,
+// so the account the report accuses could make the whole block read OK. doctor
+// must emit no byte a terminal acts on, and no name may forge a line of its own.
+func TestDoctorStateEscapesPlantedNames(t *testing.T) {
+	h := doctorHome(t)
+	if err := os.Chmod(h.stateFile(""), 0o777); err != nil { // what lets the name be planted at all
+		t.Fatal(err)
+	}
+	// Cursor up, erase the line, write a clean verdict over it, twice, then a
+	// newline that would forge a whole line on its own.
+	// A name cannot hold a slash, so the forged verdict names no path: what it
+	// imitates is the shape of a clean line, which is all a reader scans for.
+	forged := "state    every check below reads clean          OK"
+	planted := h.stateFile("a\x1b[1A\x1b[2K\r" + forged + "\n" + forged)
+	if err := os.WriteFile(planted, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(planted, 0o666); err != nil {
+		t.Fatal(err)
+	}
+
+	got := runHopCLI(t, h, "doctor")
+	if got.code != 0 {
+		t.Fatalf("exit = %d, want 0\nstdout: %q\nstderr: %q", got.code, got.stdout, got.stderr)
+	}
+	for _, b := range []string{"\x1b", "\r", "\x00"} {
+		if strings.Contains(got.stdout, b) {
+			t.Errorf("the report carries %q, which the terminal would act on:\n%q", b, got.stdout)
+		}
+	}
+
+	lines := stateLines(t, h, "doctor")
+	// 6 items exist: the state directory, its 3 entries, the settings directory
+	// and the settings file. A 7th line would be one the planted name forged.
+	if len(lines) != 6 {
+		t.Errorf("the report must hold 6 `state` lines, got %d: %v", len(lines), lines)
+	}
+	// Both real failures have to survive the escaping, since hiding them is what
+	// the planted name was for.
+	var flagged int
+	for _, l := range lines {
+		if strings.Contains(l.status, "✗") {
+			flagged++
+		}
+	}
+	if flagged != 2 {
+		t.Errorf("the 0777 directory and the 0666 file must both stay flagged, got %d of %d: %v",
+			flagged, len(lines), lines)
+	}
+	if !strings.Contains(got.stdout, `\x1b[1A`) {
+		t.Errorf("the escaped name must still be readable in the report:\n%s", got.stdout)
+	}
+}
+
 // TestDoctorStateKeepsReadableModesOK draws the line the check must not cross.
 // 0644 is the mode a careless umask leaves behind: it lets another account read
 // the index, which is a privacy matter, but not write it, so it cannot plant a

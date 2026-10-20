@@ -681,19 +681,23 @@ func cmdDoctor(_ []string) {
 	rootLbl, binLbl := i18n.T("cli.doctor.root"), i18n.T("cli.doctor.bin")
 	okLbl, noneFound := i18n.T("cli.doctor.ok"), i18n.T("cli.doctor.none_found")
 	fmt.Println(i18n.T("cli.doctor.title"))
+	// The report is read on a terminal, and the values below come from the
+	// settings file or from the filesystem, both of which this same command may be
+	// about to flag as writable by another account. Each one is escaped on its way
+	// out, so none of them can redraw the lines around it.
 	for _, r := range cfg.Roots {
 		status := okLbl
 		if fi, err := os.Stat(r); err != nil || !fi.IsDir() {
 			status = "✗"
 		}
-		fmt.Printf("  %-8s %-42s %s\n", rootLbl, r, status)
+		fmt.Printf("  %-8s %-42s %s\n", rootLbl, core.TerminalSafe(r), status)
 	}
 	for _, bin := range []string{settings.Actions.Editor, "git", "tmux"} {
 		status := okLbl
 		if _, err := exec.LookPath(bin); err != nil {
 			status = "✗"
 		}
-		fmt.Printf("  %-8s %-42s %s\n", binLbl, bin, status)
+		fmt.Printf("  %-8s %-42s %s\n", binLbl, core.TerminalSafe(bin), status)
 	}
 	var editorBins []string
 	for _, e := range action.DetectEditors() {
@@ -703,7 +707,10 @@ func cmdDoctor(_ []string) {
 	if edlist == "" {
 		edlist = noneFound
 	}
-	fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.editor"), edlist, i18n.Tf("cli.doctor.active", settings.Actions.Editor))
+	// edlist holds the bins of hop's own table of known editors, the active one
+	// comes from the settings file.
+	fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.editor"), edlist,
+		i18n.Tf("cli.doctor.active", core.TerminalSafe(settings.Actions.Editor)))
 	list := strings.Join(action.DetectAssistants(), ", ")
 	if list == "" {
 		list = noneFound
@@ -714,7 +721,7 @@ func cmdDoctor(_ []string) {
 	}
 	fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.ai"), list, i18n.Tf("cli.doctor.active", active))
 	for _, bad := range action.InvalidCustomActions(settings.Actions.Custom) {
-		fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.action"), bad, "✗")
+		fmt.Printf("  %-8s %-42s %s\n", i18n.T("cli.doctor.action"), core.TerminalSafe(bad), "✗")
 	}
 	idxLbl := i18n.T("cli.doctor.index")
 	if idx, err := core.LoadIndex(); err == nil {
@@ -724,14 +731,19 @@ func cmdDoctor(_ []string) {
 	}
 	stateLbl := i18n.T("cli.doctor.state")
 	for _, c := range core.CheckStatePerms() {
-		fmt.Printf("  %-8s %-42s %s\n", stateLbl, core.HomeRelative(c.Path), stateVerdict(c, okLbl))
+		// The name of an entry of the state directory was chosen by whoever can
+		// write that directory, which is what this very line reports on, so it is
+		// escaped before it reaches the terminal.
+		display := core.TerminalSafe(core.HomeRelative(c.Path))
+		fmt.Printf("  %-8s %-42s %s\n", stateLbl, display, stateVerdict(c, display, okLbl))
 	}
 }
 
-// stateVerdict renders one permission check for the report. doctor only reports:
-// the user is handed the command to run, hop never chmods anything itself, so an
-// unexpected mode stays visible until its owner decides what it was for.
-func stateVerdict(c core.StatePermCheck, okLbl string) string {
+// stateVerdict renders one permission check for the report, display being the
+// escaped path its line already shows. doctor only reports: the user is handed
+// the command to run, hop never chmods anything itself, so an unexpected mode
+// stays visible until its owner decides what it was for.
+func stateVerdict(c core.StatePermCheck, display, okLbl string) string {
 	flagged := func(detail string) string {
 		return fmt.Sprintf("✗ %04o %s", c.Mode, detail)
 	}
@@ -741,16 +753,19 @@ func stateVerdict(c core.StatePermCheck, okLbl string) string {
 	case core.StatePermAbsent:
 		return i18n.T("cli.doctor.state_absent")
 	case core.StatePermSymlink:
-		return flagged(i18n.Tf("cli.doctor.state_symlink", core.HomeRelative(c.Path)))
+		return flagged(i18n.Tf("cli.doctor.state_symlink", display))
 	case core.StatePermForeign:
 		return flagged(i18n.T("cli.doctor.state_foreign"))
 	case core.StatePermUnreadable:
 		return "✗ " + i18n.T("cli.doctor.state_unread")
-	default: // core.StatePermWritable
+	case core.StatePermWritable:
 		mode := "600"
 		if c.IsDir {
 			mode = "700"
 		}
-		return flagged(i18n.Tf("cli.doctor.state_fix", mode, core.HomeRelative(c.Path)))
+		return flagged(i18n.Tf("cli.doctor.state_fix", mode, display))
 	}
+	// A status added later lands here rather than borrowing the chmod advice
+	// above: the mark and the mode hold for every failure, that advice does not.
+	return fmt.Sprintf("✗ %04o", c.Mode)
 }

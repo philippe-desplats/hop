@@ -118,7 +118,7 @@ hop import --from zoxide  # seed ranking from zoxide (add --dry-run to preview)
 hop scan         # reindex on demand
 hop clean        # forget projects whose folder no longer exists (add --dry-run to preview)
 hop setup        # re-run the guided first-run setup
-hop doctor       # configuration diagnostics
+hop doctor       # configuration diagnostics, including the permissions of the state and config files
 ```
 
 In the Hub, type to filter, `Tab` opens the action menu, and from there a single key fires an action: `z` editor, `c` AI assistant, `r` resume (when the assistant supports it), `g` git, `o` remote, `f` file manager, `t` tmux or zellij session, `p` pin, plus any custom action you defined. A custom action owns its key over the built-in one: with `key = "p"` in `[[actions.custom]]`, `p` fires your action and the pin entry leaves the menu, so pinning goes through `hop pin` instead. The `o` and `f` actions use `open` on macOS and `xdg-open` on Linux, and hide themselves when neither is available. The `t` action attaches (or creates) a session named after the project, never nests when you are already inside one, and is controlled by `[actions] multiplexer = "auto" | "tmux" | "zellij" | "off"` (it hides when the chosen multiplexer is not installed).

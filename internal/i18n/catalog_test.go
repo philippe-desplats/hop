@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -56,6 +57,32 @@ func TestHelpMentionsFlags(t *testing.T) {
 			if !strings.Contains(cmdLine, c.flag) {
 				t.Errorf("%s: the `%s` line must mention %s, got %q",
 					lang, strings.TrimSpace(c.command), c.flag, cmdLine)
+			}
+		}
+	}
+}
+
+// formatVerb matches a printf verb, not the %% escape, whose second character
+// is not a letter.
+var formatVerb = regexp.MustCompile(`%[+#\-0-9.]*[a-zA-Z]`)
+
+// TestCatalogVerbParity holds every translation to the arguments of its English
+// original. Key parity cannot see this: a translation that drops a %s is a
+// present key, and the sentence it prints loses the value the message exists
+// for. `hop doctor` makes that concrete, its permission lines carry the path to
+// chmod inside the message, so a missing verb is a user left without the fix
+// and a "%!s(MISSING)" where the command should be.
+func TestCatalogVerbParity(t *testing.T) {
+	en := catalog[EN]
+	for lang, msgs := range catalog {
+		if lang == EN {
+			continue
+		}
+		for key, enMsg := range en {
+			want := formatVerb.FindAllString(enMsg, -1)
+			got := formatVerb.FindAllString(msgs[key], -1)
+			if len(want) != len(got) {
+				t.Errorf("%s %q carries the verbs %v, English has %v", lang, key, got, want)
 			}
 		}
 	}

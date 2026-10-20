@@ -722,4 +722,35 @@ func cmdDoctor(_ []string) {
 	} else {
 		fmt.Printf("  %-8s %-42s %s\n", idxLbl, core.IndexPath(), i18n.T("cli.doctor.index_missing"))
 	}
+	stateLbl := i18n.T("cli.doctor.state")
+	for _, c := range core.CheckStatePerms() {
+		fmt.Printf("  %-8s %-42s %s\n", stateLbl, core.HomeRelative(c.Path), stateVerdict(c, okLbl))
+	}
+}
+
+// stateVerdict renders one permission check for the report. doctor only reports:
+// the user is handed the command to run, hop never chmods anything itself, so an
+// unexpected mode stays visible until its owner decides what it was for.
+func stateVerdict(c core.StatePermCheck, okLbl string) string {
+	flagged := func(detail string) string {
+		return fmt.Sprintf("✗ %04o %s", c.Mode, detail)
+	}
+	switch c.Status {
+	case core.StatePermOK:
+		return okLbl
+	case core.StatePermAbsent:
+		return i18n.T("cli.doctor.state_absent")
+	case core.StatePermSymlink:
+		return flagged(i18n.Tf("cli.doctor.state_symlink", core.HomeRelative(c.Path)))
+	case core.StatePermForeign:
+		return flagged(i18n.T("cli.doctor.state_foreign"))
+	case core.StatePermUnreadable:
+		return "✗ " + i18n.T("cli.doctor.state_unread")
+	default: // core.StatePermWritable
+		mode := "600"
+		if c.IsDir {
+			mode = "700"
+		}
+		return flagged(i18n.Tf("cli.doctor.state_fix", mode, core.HomeRelative(c.Path)))
+	}
 }

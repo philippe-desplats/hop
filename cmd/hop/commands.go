@@ -226,16 +226,48 @@ func cmdImport(args []string) {
 // plain string (no sentinel, no frecency write) for scripting and composition
 // with other tools, the hop counterpart of `zoxide query`. With no keyword it
 // prints the top-frecency path; with --list it prints every match path,
-// frecency-descending, ignoring any keyword. No match exits 1 with empty stdout.
+// frecency-descending, ignoring any keyword, and --limit N prints at most the
+// first N of them. No match exits 1 with empty stdout.
+//
+// Every --limit mistake is a usage error rather than a degraded result: on
+// stderr, with an empty stdout and exit code 2, so `paths=$(hop query --list
+// --limit $N)` either holds paths or holds nothing. For the same reason an
+// unknown --flag is refused instead of being absorbed as a keyword, which under
+// --list (where keywords are ignored) used to turn a typo into a full listing
+// with exit code 0. A single dash stays a keyword, so no existing invocation
+// changes meaning.
 func cmdQuery(args []string) {
 	list := false
+	limit, capped := 0, false
 	var kws []string
-	for _, a := range args {
-		if a == "--list" {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--list":
 			list = true
-			continue
+		case a == "--limit":
+			// A following flag is a missing value, not a malformed one, the same
+			// reading cmdInit gives `hop init --cmd --foo`.
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+				fmt.Fprintln(os.Stderr, i18n.T("cli.query_limit_no_value"))
+				os.Exit(2)
+			}
+			limit, capped = queryLimit(args[i+1]), true
+			i++
+		case strings.HasPrefix(a, "--limit="):
+			limit, capped = queryLimit(strings.TrimPrefix(a, "--limit=")), true
+		case strings.HasPrefix(a, "--"):
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.query_unknown_flag", a))
+			os.Exit(2)
+		default:
+			kws = append(kws, a)
 		}
-		kws = append(kws, a)
+	}
+	// Checked after the loop, once the whole vector is known, so the answer does
+	// not depend on where --list sits relative to --limit.
+	if capped && !list {
+		fmt.Fprintln(os.Stderr, i18n.T("cli.query_limit_needs_list"))
+		os.Exit(2)
 	}
 	if list {
 		kws = nil // --list lists everything by frecency, keywords are ignored
@@ -261,6 +293,11 @@ func cmdQuery(args []string) {
 		if len(paths) == 0 {
 			os.Exit(1)
 		}
+		// The cap truncates the printable paths, after the control-char filter, so
+		// an unprintable path never consumes one of the N slots.
+		if capped && limit < len(paths) {
+			paths = paths[:limit]
+		}
 		for _, p := range paths {
 			fmt.Println(p)
 		}
@@ -271,6 +308,19 @@ func cmdQuery(args []string) {
 		return
 	}
 	os.Exit(1)
+}
+
+// queryLimit reads a --limit value, or reports it and exits 2. Zero, a negative
+// number, a non-number and a value that does not fit an int are all refused:
+// an out-of-range value is not clamped, because a clamp would silently answer a
+// question the caller did not ask.
+func queryLimit(raw string) int {
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 1 {
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.query_limit_invalid", raw))
+		os.Exit(2)
+	}
+	return n
 }
 
 // firstSafePath returns the best match's path, skipping any path that would be

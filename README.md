@@ -130,6 +130,7 @@ Keywords are ordered and each must appear in the path (the `zoxide` model). A fr
 ```sh
 cd "$(hop query api)"           # cd without the p() function
 hop query --list | fzf          # pipe every project into fzf
+hop query --list --limit 5      # the top 5 only, no need for head
 code "$(hop query acme web)"    # open the match in another tool
 ```
 

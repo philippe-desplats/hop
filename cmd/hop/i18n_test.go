@@ -68,6 +68,16 @@ func TestOperatorMessagesAreLocalized(t *testing.T) {
 		}
 	})
 
+	t.Run("hop query --list --limit with a bad value", func(t *testing.T) {
+		stderr, code := run(t, "query", "--list", "--limit", "0")
+		if code != 2 {
+			t.Errorf("exit = %d, want 2 (usage error)\nstderr: %s", code, stderr)
+		}
+		if strings.Contains(stderr, "invalid --limit value") {
+			t.Errorf("a French user must not be served the English wording, got:\n%s", stderr)
+		}
+	})
+
 	t.Run("hop pin without a keyword", func(t *testing.T) {
 		stderr, code := run(t, "pin")
 		if strings.Contains(stderr, "unpin") {

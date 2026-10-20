@@ -150,13 +150,17 @@ var catalog = map[Lang]map[string]string{
 		"cli.unpin_usage":            "hop: usage: hop unpin <keyword>",
 		"cli.nav_unknown_option":     "hop: unknown option %q",
 		"cli.nav_jump_usage":         "usage: p - (previous), p -2, p -3 (nth most recent)",
+		"cli.query_limit_no_value":   "hop: --limit requires a value",
+		"cli.query_limit_invalid":    "hop: invalid --limit value %q (expected a whole number of 1 or more)",
+		"cli.query_limit_needs_list": "hop: --limit applies to --list (try `hop query --list --limit N`)",
+		"cli.query_unknown_flag":     "hop: unknown flag %q for query",
 		"cli.unknown_command":        "hop: unknown command %q (try `hop help`)",
 		"cli.help": `hop · project switcher
 
 Usage:
   hop setup              Guided first-run setup (folders, editor, assistant)
   hop nav [keyword...]   Resolve keywords and print the target (used by p)
-  hop query [keyword...] Print the best match path (plain, for scripts; --list for all)
+  hop query [keyword...] Print the best match path (--list for all, --limit N to cap)
   hop scan               (Re)build the project index
   hop add <path>         Record a visit (frecency)
   hop init zsh [--cmd N] Print the shell integration (function "p" by default)
@@ -363,13 +367,17 @@ config file to make a new name the default.
 		"cli.unpin_usage":            "hop : utilisation : hop unpin <mot-clé>",
 		"cli.nav_unknown_option":     "hop : option inconnue %q",
 		"cli.nav_jump_usage":         "utilisation : p - (précédent), p -2, p -3 (n-ième plus récent)",
+		"cli.query_limit_no_value":   "hop : --limit attend une valeur",
+		"cli.query_limit_invalid":    "hop : valeur --limit invalide %q (un entier supérieur ou égal à 1 est attendu)",
+		"cli.query_limit_needs_list": "hop : --limit s'applique à --list (essaie `hop query --list --limit N`)",
+		"cli.query_unknown_flag":     "hop : option inconnue %q pour query",
 		"cli.unknown_command":        "hop: commande inconnue %q (essaie `hop help`)",
 		"cli.help": `hop · commutateur de projets
 
 Usage:
   hop setup              Configuration guidée au premier lancement (dossiers, éditeur, assistant)
   hop nav [mot-clé...]   Résout des mots-clés et imprime la cible (utilisé par p)
-  hop query [mot-clé...] Imprime le chemin du meilleur match (brut, pour scripts ; --list pour tous)
+  hop query [mot-clé...] Imprime le chemin du meilleur match (--list pour tous, --limit N pour borner)
   hop scan               (Re)construit l'index des projets
   hop add <path>         Enregistre un accès (frécence)
   hop init zsh [--cmd N] Imprime l'intégration shell (fonction "p" par défaut)
@@ -577,13 +585,17 @@ dans la section [shell] du fichier de config pour en faire le nom par défaut.
 		"cli.unpin_usage":            "hop: uso: hop unpin <palabra>",
 		"cli.nav_unknown_option":     "hop: opción desconocida %q",
 		"cli.nav_jump_usage":         "uso: p - (anterior), p -2, p -3 (n-ésimo más reciente)",
+		"cli.query_limit_no_value":   "hop: --limit requiere un valor",
+		"cli.query_limit_invalid":    "hop: valor --limit no válido %q (se espera un número entero de 1 o más)",
+		"cli.query_limit_needs_list": "hop: --limit se aplica a --list (prueba `hop query --list --limit N`)",
+		"cli.query_unknown_flag":     "hop: opción desconocida %q para query",
 		"cli.unknown_command":        "hop: comando desconocido %q (prueba `hop help`)",
 		"cli.help": `hop · conmutador de proyectos
 
 Uso:
   hop setup              Configuración guiada inicial (carpetas, editor, asistente)
   hop nav [palabra...]   Resuelve palabras e imprime el destino (usado por p)
-  hop query [palabra...] Imprime la ruta del mejor resultado (texto plano, para scripts; --list para todos)
+  hop query [palabra...] Imprime la ruta del mejor resultado (--list para todas, --limit N para limitar)
   hop scan               (Re)construye el índice de proyectos
   hop add <path>         Registra un acceso (frecencia)
   hop init zsh [--cmd N] Imprime la integración del shell (función "p" por defecto)
@@ -791,13 +803,17 @@ del archivo de configuración para que ese nombre sea el predeterminado.
 		"cli.unpin_usage":            "hop: uso: hop unpin <palavra>",
 		"cli.nav_unknown_option":     "hop: opção desconhecida %q",
 		"cli.nav_jump_usage":         "uso: p - (anterior), p -2, p -3 (n-ésimo mais recente)",
+		"cli.query_limit_no_value":   "hop: --limit exige um valor",
+		"cli.query_limit_invalid":    "hop: valor --limit inválido %q (espera-se um número inteiro de 1 ou mais)",
+		"cli.query_limit_needs_list": "hop: --limit aplica-se a --list (tente `hop query --list --limit N`)",
+		"cli.query_unknown_flag":     "hop: opção desconhecida %q para query",
 		"cli.unknown_command":        "hop: comando desconhecido %q (tente `hop help`)",
 		"cli.help": `hop · alternador de projetos
 
 Uso:
   hop setup              Configuração guiada inicial (pastas, editor, assistente)
   hop nav [palavra...]   Resolve palavras e imprime o destino (usado por p)
-  hop query [palavra...] Imprime o caminho do melhor resultado (texto puro, para scripts; --list para todos)
+  hop query [palavra...] Imprime o caminho do melhor resultado (--list para todos, --limit N para limitar)
   hop scan               (Re)constrói o índice de projetos
   hop add <path>         Registra um acesso (frecência)
   hop init zsh [--cmd N] Imprime a integração do shell (função "p" por padrão)

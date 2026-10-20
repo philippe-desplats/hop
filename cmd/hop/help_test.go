@@ -61,9 +61,12 @@ func newHopHome(t *testing.T, config string) hopHome {
 }
 
 // configFile and indexFile are the two files hop writes that a help request must
-// never create or rewrite.
+// never create or rewrite. stateFile names any of the others (frecency.json,
+// pins.json, extras.json), which the clean tests seed and compare.
 func (h hopHome) configFile() string { return filepath.Join(h.configHome, "hop", "config.toml") }
-func (h hopHome) indexFile() string  { return filepath.Join(h.stateHome, "hop", "index.json") }
+func (h hopHome) indexFile() string  { return h.stateFile("index.json") }
+
+func (h hopHome) stateFile(name string) string { return filepath.Join(h.stateHome, "hop", name) }
 
 // hopResult is everything the parent gets to observe of a child run.
 type hopResult struct {

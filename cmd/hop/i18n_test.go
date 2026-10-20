@@ -78,6 +78,16 @@ func TestOperatorMessagesAreLocalized(t *testing.T) {
 		}
 	})
 
+	t.Run("hop clean with an argument it does not know", func(t *testing.T) {
+		stderr, code := run(t, "clean", "--bogus")
+		if code != 2 {
+			t.Errorf("exit = %d, want 2 (usage error)\nstderr: %s", code, stderr)
+		}
+		if strings.Contains(stderr, "unknown argument") {
+			t.Errorf("a French user must not be served the English wording, got:\n%s", stderr)
+		}
+	})
+
 	t.Run("hop pin without a keyword", func(t *testing.T) {
 		stderr, code := run(t, "pin")
 		if strings.Contains(stderr, "unpin") {

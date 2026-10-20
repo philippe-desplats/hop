@@ -77,7 +77,38 @@ func parseJumpBack(arg string) (int, bool) {
 // cmdClean prunes frecency, pin and tracked-folder entries whose directory no
 // longer exists. Pruning is all it does, so a failure is fatal, and the count is
 // printed even at zero: that line is the command's whole answer.
-func cmdClean(_ []string) {
+//
+// --dry-run turns the command into a preview: it names every path it would
+// forget and writes nothing. The listing joins the count on stderr, where every
+// line hop prints for a human goes. The paths are ~-collapsed for reading, which
+// is not a form a script could cd into anyway, and `hop query --list` is the
+// command that reserves stdout for machine use.
+//
+// The preview counts distinct paths while the committed run counts the store
+// entries it removed, so the two numbers differ for a project that was both
+// visited and pinned. Each says what it did, which is why they are two separate
+// sentences rather than one shared count.
+func cmdClean(args []string) {
+	dryRun := false
+	for _, a := range args {
+		// clean has no positional argument, so anything that is not the one flag
+		// it knows is a usage error. Discarding it, which is what the command did
+		// before the flag existed, would make `hop clean --dry-runn` prune the
+		// three stores and exit 0, indistinguishable from the preview asked for.
+		if a != "--dry-run" {
+			fmt.Fprintln(os.Stderr, i18n.Tf("cli.clean_unknown_arg", a))
+			os.Exit(2)
+		}
+		dryRun = true
+	}
+	if dryRun {
+		dead := core.DeadPaths()
+		for _, path := range dead {
+			fmt.Fprintln(os.Stderr, core.HomeRelative(path))
+		}
+		fmt.Fprintln(os.Stderr, i18n.Tf("cli.clean_dry", len(dead)))
+		return
+	}
 	pruned, err := pruneDeadPaths()
 	if err != nil {
 		fatal(err)

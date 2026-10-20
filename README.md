@@ -116,7 +116,7 @@ hop track ~/Downloads    # add any folder to the search list, even without git
 hop untrack ~/Downloads  # remove it from the list again
 hop import --from zoxide  # seed ranking from zoxide (add --dry-run to preview)
 hop scan         # reindex on demand
-hop clean        # forget projects whose folder no longer exists
+hop clean        # forget projects whose folder no longer exists (add --dry-run to preview)
 hop setup        # re-run the guided first-run setup
 hop doctor       # configuration diagnostics
 ```

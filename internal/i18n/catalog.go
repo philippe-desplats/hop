@@ -109,6 +109,8 @@ var catalog = map[Lang]map[string]string{
 		"cli.no_prev":               "hop: no previous project",
 		"cli.pruned":                "hop: removed %d dead path(s)",
 		"cli.prune_failed":          "hop: could not remove dead paths: %v",
+		"cli.clean_dry":             "hop: %d dead path(s) to forget (dry run, nothing written)",
+		"cli.clean_unknown_arg":     "hop: unknown argument %q for clean (only --dry-run is supported)",
 		"cli.pinned":                "hop: pinned %s",
 		"cli.unpinned":              "hop: unpinned %s",
 		"cli.tracked":               "hop: now tracking %s",
@@ -170,7 +172,7 @@ Usage:
   hop track <path>       Add a folder to the search list (even without git)
   hop untrack <path>     Remove a folder from the search list
   hop import --from zoxide  Seed ranking from zoxide (--dry-run to preview)
-  hop clean              Forget projects whose folder no longer exists
+  hop clean              Forget projects whose folder no longer exists (--dry-run to preview)
   hop doctor             Configuration diagnostics
   hop version            Print the version
 
@@ -326,6 +328,8 @@ config file to make a new name the default.
 		"cli.no_prev":               "hop: pas de projet précédent",
 		"cli.pruned":                "hop: %d chemin(s) mort(s) supprimé(s)",
 		"cli.prune_failed":          "hop: impossible de supprimer les chemins morts : %v",
+		"cli.clean_dry":             "hop: %d chemin(s) mort(s) à oublier (simulation, rien écrit)",
+		"cli.clean_unknown_arg":     "hop: argument inconnu %q pour clean (seul --dry-run est supporté)",
 		"cli.pinned":                "hop: %s épinglé",
 		"cli.unpinned":              "hop: %s désépinglé",
 		"cli.tracked":               "hop: %s ajouté à la liste de recherche",
@@ -387,7 +391,7 @@ Usage:
   hop track <chemin>     Ajoute un dossier à la liste de recherche (même sans git)
   hop untrack <chemin>   Retire un dossier de la liste de recherche
   hop import --from zoxide  Amorce le classement depuis zoxide (--dry-run pour prévisualiser)
-  hop clean              Oublie les projets dont le dossier n'existe plus
+  hop clean              Oublie les projets dont le dossier n'existe plus (--dry-run pour prévisualiser)
   hop doctor             Diagnostic de configuration
   hop version            Affiche la version
 
@@ -544,6 +548,8 @@ dans la section [shell] du fichier de config pour en faire le nom par défaut.
 		"cli.no_prev":               "hop: sin proyecto anterior",
 		"cli.pruned":                "hop: %d ruta(s) muerta(s) eliminada(s)",
 		"cli.prune_failed":          "hop: no se pudieron eliminar las rutas muertas: %v",
+		"cli.clean_dry":             "hop: %d ruta(s) muerta(s) a olvidar (simulación, no se escribió nada)",
+		"cli.clean_unknown_arg":     "hop: argumento desconocido %q para clean (solo se admite --dry-run)",
 		"cli.pinned":                "hop: %s fijado",
 		"cli.unpinned":              "hop: %s desfijado",
 		"cli.tracked":               "hop: %s añadido a la lista de búsqueda",
@@ -605,7 +611,7 @@ Uso:
   hop track <ruta>       Añade una carpeta a la lista de búsqueda (aunque sin git)
   hop untrack <ruta>     Quita una carpeta de la lista de búsqueda
   hop import --from zoxide  Inicializa el ranking desde zoxide (--dry-run para previsualizar)
-  hop clean              Olvida proyectos cuya carpeta ya no existe
+  hop clean              Olvida proyectos cuya carpeta ya no existe (--dry-run para previsualizar)
   hop doctor             Diagnóstico de configuración
   hop version            Muestra la versión
 
@@ -762,6 +768,8 @@ del archivo de configuración para que ese nombre sea el predeterminado.
 		"cli.no_prev":               "hop: sem projeto anterior",
 		"cli.pruned":                "hop: %d caminho(s) morto(s) removido(s)",
 		"cli.prune_failed":          "hop: não foi possível remover os caminhos mortos: %v",
+		"cli.clean_dry":             "hop: %d caminho(s) morto(s) a esquecer (simulação, nada gravado)",
+		"cli.clean_unknown_arg":     "hop: argumento desconhecido %q para clean (apenas --dry-run é suportado)",
 		"cli.pinned":                "hop: %s fixado",
 		"cli.unpinned":              "hop: %s desafixado",
 		"cli.tracked":               "hop: %s adicionado à lista de busca",
@@ -823,7 +831,7 @@ Uso:
   hop track <caminho>    Adiciona uma pasta à lista de busca (mesmo sem git)
   hop untrack <caminho>  Remove uma pasta da lista de busca
   hop import --from zoxide  Inicializa o ranking a partir do zoxide (--dry-run para pré-visualizar)
-  hop clean              Esquece projetos cuja pasta não existe mais
+  hop clean              Esquece projetos cuja pasta não existe mais (--dry-run para pré-visualizar)
   hop doctor             Diagnóstico de configuração
   hop version            Mostra a versão
 

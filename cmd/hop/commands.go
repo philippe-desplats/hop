@@ -733,27 +733,38 @@ func cmdDoctor(_ []string) {
 	for _, c := range core.CheckStatePerms() {
 		// The name of an entry of the state directory was chosen by whoever can
 		// write that directory, which is what this very line reports on, so it is
-		// escaped before it reaches the terminal.
-		display := core.TerminalSafe(core.HomeRelative(c.Path))
-		fmt.Printf("  %-8s %-42s %s\n", stateLbl, display, stateVerdict(c, display, okLbl))
+		// escaped before it reaches the terminal, and quoted before it reaches the
+		// shell the fix is pasted into.
+		rel := core.HomeRelative(c.Path)
+		fmt.Printf("  %-8s %-42s %s\n", stateLbl, core.TerminalSafe(rel), stateVerdict(c, rel, okLbl))
 	}
 }
 
-// stateVerdict renders one permission check for the report, display being the
-// escaped path its line already shows. doctor only reports: the user is handed
-// the command to run, hop never chmods anything itself, so an unexpected mode
-// stays visible until its owner decides what it was for.
-func stateVerdict(c core.StatePermCheck, display, okLbl string) string {
+// stateVerdict renders one permission check for the report, rel being the path
+// its line shows, home-relative and unescaped. doctor only reports: the user is
+// handed the command to run, hop never chmods anything itself, so an unexpected
+// mode stays visible until its owner decides what it was for.
+//
+// That command is written to be pasted into a shell, and the name inside it was
+// chosen by whoever can write the state directory, so it goes in quoted. A name
+// with no shell form at all loses the command rather than carrying a payload
+// into it: the mark, the mode and the escaped name on the line still say what to
+// do, and the entry is the user's to delete by hand.
+func stateVerdict(c core.StatePermCheck, rel, okLbl string) string {
 	flagged := func(detail string) string {
 		return fmt.Sprintf("✗ %04o %s", c.Mode, detail)
 	}
+	word, pasteable := core.ShellQuote(rel)
 	switch c.Status {
 	case core.StatePermOK:
 		return okLbl
 	case core.StatePermAbsent:
 		return i18n.T("cli.doctor.state_absent")
 	case core.StatePermSymlink:
-		return flagged(i18n.Tf("cli.doctor.state_symlink", display))
+		if !pasteable {
+			return flagged(i18n.T("cli.doctor.state_raw_link"))
+		}
+		return flagged(i18n.Tf("cli.doctor.state_symlink", word))
 	case core.StatePermForeign:
 		return flagged(i18n.T("cli.doctor.state_foreign"))
 	case core.StatePermUnreadable:
@@ -763,7 +774,10 @@ func stateVerdict(c core.StatePermCheck, display, okLbl string) string {
 		if c.IsDir {
 			mode = "700"
 		}
-		return flagged(i18n.Tf("cli.doctor.state_fix", mode, display))
+		if !pasteable {
+			return flagged(i18n.Tf("cli.doctor.state_raw_fix", mode))
+		}
+		return flagged(i18n.Tf("cli.doctor.state_fix", mode, word))
 	}
 	// A status added later lands here rather than borrowing the chmod advice
 	// above: the mark and the mode hold for every failure, that advice does not.

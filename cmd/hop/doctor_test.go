@@ -4,6 +4,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -435,4 +436,216 @@ func snapshot(t *testing.T, h hopHome) map[string]string {
 		}
 	}
 	return out
+}
+
+// fixCommand returns the shell command a report offers, failing the test unless
+// exactly one line carries one: a test that pasted the wrong line would prove
+// nothing about the line it meant.
+func fixCommand(t *testing.T, stdout string) string {
+	t.Helper()
+	var cmds []string
+	for _, line := range strings.Split(stdout, "\n") {
+		if _, after, ok := strings.Cut(line, "fix: "); ok {
+			cmds = append(cmds, after)
+		}
+	}
+	if len(cmds) != 1 {
+		t.Fatalf("want exactly 1 line offering a command, got %d:\n%s", len(cmds), stdout)
+	}
+	return cmds[0]
+}
+
+// paste runs cmd the way the user would: their own shell, their own home, and
+// the state directory they were just told about. A fix hop prints is a fix only
+// if it runs, so a non-zero exit fails the test as loudly as a payload would.
+func paste(t *testing.T, h hopHome, cmd string) {
+	t.Helper()
+	sh := exec.Command("/bin/sh", "-c", cmd)
+	sh.Dir = h.home
+	sh.Env = []string{"HOME=" + h.home, "PATH=" + os.Getenv("PATH")}
+	if out, err := sh.CombinedOutput(); err != nil {
+		t.Fatalf("the fix hop printed does not run: %s\n%v\n%s", cmd, err, out)
+	}
+}
+
+// refusePayload fails the test when the planted name got to run, which it would
+// prove by leaving its file behind anywhere under the home the paste ran in.
+func refusePayload(t *testing.T, h hopHome, cmd string) {
+	t.Helper()
+	err := filepath.WalkDir(h.home, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // an unreadable corner cannot hold what touch would have created
+		}
+		if !d.IsDir() && strings.HasPrefix(d.Name(), "PWNED") {
+			t.Errorf("pasting %s ran the planted command, which left %s", cmd, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// hostileNames are the ways an entry of the state directory can be named so that
+// the fix hop prints for it runs the planter's command instead. Only the account
+// the line reports on can plant one, which is the point: the report must not be
+// the second chance that account needs.
+var hostileNames = []string{
+	"$(touch PWNED)",
+	"`touch PWNED`",
+	"a;touch PWNED",
+	"a&&touch PWNED",
+	"a$HOME b",
+	"it's mine",
+}
+
+// TestDoctorFixRunsNothingThePlanterNamed closes the other half of the hole the
+// report opens by existing. A fix line has one purpose, being pasted into a
+// shell, and the name inside it was chosen by whoever can write the state
+// directory. The paste outlives the repair: the owner tightens the directory,
+// the planter loses the write bit, and the line keeps being printed on every
+// run, so a planted name in it is a command the planter gets to rerun for as
+// long as the entry sits there.
+func TestDoctorFixRunsNothingThePlanterNamed(t *testing.T) {
+	for _, name := range hostileNames {
+		t.Run(name, func(t *testing.T) {
+			h := doctorHome(t)
+			// doctor shows its paths home-relative, which is the form the user
+			// pastes, so the state directory goes under the home here.
+			h.stateHome = filepath.Join(h.home, ".local", "state")
+			if err := os.MkdirAll(h.stateFile(""), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			planted := h.stateFile(name)
+			if err := os.WriteFile(planted, []byte("x"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(planted, 0o666); err != nil { // the one failure in the report
+				t.Fatal(err)
+			}
+
+			got := runHopCLI(t, h, "doctor")
+			if got.code != 0 {
+				t.Fatalf("exit = %d, want 0\nstdout: %s\nstderr: %s", got.code, got.stdout, got.stderr)
+			}
+			cmd := fixCommand(t, got.stdout)
+			paste(t, h, cmd)
+
+			refusePayload(t, h, cmd)
+			// The paste has to have done its own job too, on that entry and on no
+			// other: a command that runs but chmods the directory instead leaves the
+			// user worse off than the line they trusted.
+			fi, err := os.Lstat(planted)
+			if err != nil {
+				t.Fatalf("the entry the fix named is gone: %v", err)
+			}
+			if fi.Mode().Perm() != 0o600 {
+				t.Errorf("pasting %s left %s at %04o, want 0600", cmd, name, fi.Mode().Perm())
+			}
+			dir, err := os.Stat(h.stateFile(""))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if dir.Mode().Perm() != 0o700 {
+				t.Errorf("pasting %s changed the state directory to %04o", cmd, dir.Mode().Perm())
+			}
+		})
+	}
+}
+
+// TestDoctorSymlinkFixRemovesTheLinkAndNothingElse holds the other command the
+// report hands out. A planted symlink is the case where the advice is `rm`, so
+// the name reaching the shell as itself decides between deleting the link and
+// running what its name says while the link stays where it was.
+func TestDoctorSymlinkFixRemovesTheLinkAndNothingElse(t *testing.T) {
+	for _, name := range hostileNames {
+		t.Run(name, func(t *testing.T) {
+			h := doctorHome(t)
+			h.stateHome = filepath.Join(h.home, ".local", "state")
+			if err := os.MkdirAll(h.stateFile(""), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			target := filepath.Join(t.TempDir(), "owner-secret")
+			const secret = "the target's own bytes\n"
+			if err := os.WriteFile(target, []byte(secret), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			planted := h.stateFile(name)
+			if err := os.Symlink(target, planted); err != nil {
+				t.Fatal(err)
+			}
+
+			got := runHopCLI(t, h, "doctor")
+			if got.code != 0 {
+				t.Fatalf("exit = %d, want 0\nstdout: %s\nstderr: %s", got.code, got.stdout, got.stderr)
+			}
+			cmd := fixCommand(t, got.stdout)
+			paste(t, h, cmd)
+
+			refusePayload(t, h, cmd)
+			if _, err := os.Lstat(planted); !os.IsNotExist(err) {
+				t.Errorf("pasting %s left the link in place (lstat err = %v)", cmd, err)
+			}
+			after, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatalf("pasting %s reached the link's target: %v", cmd, err)
+			}
+			if string(after) != secret {
+				t.Errorf("pasting %s rewrote the target: %q", cmd, after)
+			}
+		})
+	}
+}
+
+// TestDoctorOffersNoCommandForAnUnpastableName covers the name that has no shell
+// form at all. A byte a terminal acts on cannot be put inside shell quotes, and
+// the escaping that makes it readable needs double quotes, inside which a $ runs
+// again, so the line has to drop the command rather than print one that is a
+// payload. The mark, the mode and the escaped name still say what to do.
+func TestDoctorOffersNoCommandForAnUnpastableName(t *testing.T) {
+	h := doctorHome(t)
+	h.stateHome = filepath.Join(h.home, ".local", "state")
+	if err := os.MkdirAll(h.stateFile(""), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	planted := h.stateFile("a\x1b[1A$(touch PWNED)")
+	if err := os.WriteFile(planted, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(planted, 0o666); err != nil {
+		t.Fatal(err)
+	}
+
+	got := runHopCLI(t, h, "doctor")
+	if got.code != 0 {
+		t.Fatalf("exit = %d, want 0\nstdout: %s\nstderr: %s", got.code, got.stdout, got.stderr)
+	}
+	for _, line := range strings.Split(got.stdout, "\n") {
+		_, after, ok := strings.Cut(line, "fix: ")
+		if !ok {
+			continue
+		}
+		if strings.ContainsAny(after, "$`") {
+			t.Errorf("the report offers %q, which a shell would not read as a name", after)
+		}
+	}
+	lines := stateLines(t, h, "doctor")
+	var flagged int
+	for _, l := range lines {
+		if strings.Contains(l.status, "✗") {
+			flagged++
+			if !strings.Contains(l.status, "0666") {
+				t.Errorf("the line must still show the mode, got %q", l.status)
+			}
+			if !strings.Contains(l.status, "by hand") {
+				t.Errorf("the line must say the fix is the user's to make, got %q", l.status)
+			}
+		}
+	}
+	if flagged != 1 {
+		t.Errorf("the 0666 entry must stay the one failure, got %d of %d: %v", flagged, len(lines), lines)
+	}
+	if !strings.Contains(got.stdout, `\x1b[1A`) {
+		t.Errorf("the escaped name must still be readable in the report:\n%s", got.stdout)
+	}
 }

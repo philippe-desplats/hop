@@ -45,6 +45,55 @@ func TerminalSafe(s string) string {
 	return s
 }
 
+// ShellQuote renders p as a single word a shell reads literally, and reports
+// whether it could. `hop doctor` prints its fix as a command to paste, and the
+// name inside that command belongs to whoever can write the state directory,
+// which is the very account the line reports on: pasted bare, an entry named
+// `$(...)` runs the planter's command, and it keeps being offered on every run
+// after the owner has closed the hole that allowed the plant. Single quotes stop
+// every expansion a shell does, and a quote inside the name is broken out of
+// them and put back as a literal, in the one form sh, bash, zsh and fish all
+// read alike:
+//
+//	'it'\''s mine'
+//
+// A leading ~/ stays outside the quotes, since hop and not the name is what put
+// that tilde there and the user needs the shell to expand it.
+//
+// A path holding a byte a terminal acts on has no such word: single quotes would
+// pass that byte through untouched, and the escaping that makes it readable needs
+// double quotes, inside which a $ is live again. It comes back as TerminalSafe
+// renders it, with false, and the caller offers no command for it.
+func ShellQuote(p string) (string, bool) {
+	if safe := TerminalSafe(p); safe != p {
+		return safe, false
+	}
+	if p == "~" {
+		return p, true
+	}
+	prefix := ""
+	// A shell only expands a tilde that reaches it unquoted, slash included, so
+	// the ~/ is kept out of the quotes whole.
+	if strings.HasPrefix(p, "~/") {
+		prefix, p = "~/", p[2:]
+	}
+	if p != "" && !strings.ContainsFunc(p, needsShellQuote) {
+		return prefix + p, true
+	}
+	return prefix + "'" + strings.ReplaceAll(p, "'", `'\''`) + "'", true
+}
+
+// needsShellQuote reports whether r has to sit inside quotes to reach a command
+// as itself. What is left bare is the set a shell has no rule for: letters,
+// digits, and the punctuation that shows up in the paths hop prints.
+func needsShellQuote(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		return false
+	}
+	return !strings.ContainsRune("-_./:@+,=%", r)
+}
+
 // ExpandHome resolves a leading ~ to the user's home directory. It is exported
 // because the CLI expands the same tildes as the config does: `hop track ~/x`
 // and `roots = ["~/x"]` have to land on the same path, which a second copy of
